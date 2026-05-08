@@ -74,7 +74,13 @@ public class RippleEffect : MonoBehaviour
 
             var img = go.AddComponent<Image>();
             img.color = Color.clear;
-            img.raycastTarget = false; // tiklama engellemez
+            img.raycastTarget = false;
+
+            // Daire sprite — Unity built-in "Knob" sprite kullan
+            // Bu UISprite olup dairesel maske verir
+            img.sprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/Knob.psd");
+            img.type   = Image.Type.Simple;
+            img.preserveAspect = true;
 
             var rt = go.GetComponent<RectTransform>();
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
