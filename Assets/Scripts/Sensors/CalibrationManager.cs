@@ -117,17 +117,43 @@ public class CalibrationManager : MonoBehaviour
     {
         if (PlayerPrefs.HasKey(SAVE_KEY + "_done"))
         {
-            minLux = PlayerPrefs.GetFloat(SAVE_KEY + "_min");
-            maxLux = PlayerPrefs.GetFloat(SAVE_KEY + "_max");
-            isCalibrated = true;
-            debugMinLux = minLux;
-            debugMaxLux = maxLux;
-            Debug.Log($"[CALIBRATION] 📂 Yüklendi! Min:{minLux:F1} Max:{maxLux:F1}");
+            float savedMin = PlayerPrefs.GetFloat(SAVE_KEY + "_min");
+            float savedMax = PlayerPrefs.GetFloat(SAVE_KEY + "_max");
+
+            // Validasyon: Min >= Max ise kalibrasyon bozuk — sil ve sıfırla
+            if (savedMin >= savedMax)
+            {
+                Debug.LogWarning($"[CALIBRATION] ⚠️ Bozuk kalibrasyon (Min:{savedMin:F1} >= Max:{savedMax:F1}) — silindi, yeniden kalibrasyon gerekli!");
+                ClearCalibrationData();
+            }
+            else
+            {
+                minLux = savedMin;
+                maxLux = savedMax;
+                isCalibrated = true;
+                debugMinLux = minLux;
+                debugMaxLux = maxLux;
+                Debug.Log($"[CALIBRATION] 📂 Yüklendi! Min:{minLux:F1} Max:{maxLux:F1}");
+            }
         }
         else
         {
             Debug.Log("[CALIBRATION] ⚠️ Kayıt yok, kalibrasyon gerekli!");
         }
+    }
+
+    public void ClearCalibrationData()
+    {
+        PlayerPrefs.DeleteKey(SAVE_KEY + "_min");
+        PlayerPrefs.DeleteKey(SAVE_KEY + "_max");
+        PlayerPrefs.DeleteKey(SAVE_KEY + "_done");
+        PlayerPrefs.Save();
+        minLux       = 0f;
+        maxLux       = 50000f;
+        isCalibrated = false;
+        debugMinLux  = minLux;
+        debugMaxLux  = maxLux;
+        Debug.Log("[CALIBRATION] 🗑️ Kalibrasyon verisi silindi.");
     }
 
     // --- Getters ---

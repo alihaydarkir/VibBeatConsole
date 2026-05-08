@@ -25,7 +25,7 @@ public class TouchZoneController : MonoBehaviour
     private Dictionary<int, TouchZoneType> activeTouches = new Dictionary<int, TouchZoneType>();
 
     // --- Inspector Debug ---
-    [SerializeField] private bool debugShowZones = true;
+    [SerializeField] private bool debugShowZones = false;  // Editor zone görselini kapalı başlat
     [SerializeField] private TouchZoneType debugActiveZone = TouchZoneType.None;
     [SerializeField] private bool debugIsGuitarMuted = false;
     [SerializeField] private int debugPianoKeyIndex = -1;
@@ -48,11 +48,11 @@ public class TouchZoneController : MonoBehaviour
 
     private void Update()
     {
-#if UNITY_EDITOR
-        HandleMouseInput();
-#else
+        // NOT: Editor'da UI butonları (Bootstrap listener'ları) tıklamayı halleder.
+        // TouchZone sistemi yalnızca mobilde raw touch input için aktif.
+        // Editor'da mouse simülasyonu UI EventSystem ile çakışır — devre dışı.
+        if (Application.platform != RuntimePlatform.Android) return;
         HandleTouchInput();
-#endif
     }
 
     // --- Mobil Dokunuş ---
@@ -174,12 +174,9 @@ public class TouchZoneController : MonoBehaviour
     private void OnGUI()
     {
         if (!debugShowZones) return;
-
-#if UNITY_EDITOR
-        DrawZone(guitarMuteZone, "🎸 MUTE", new Color(1, 0, 0, 0.3f));
-        DrawZone(pianoZone, "🎹 PIANO", new Color(0, 0, 1, 0.3f));
-        DrawZone(drumZone, "🥁 DRUM", new Color(0, 1, 0, 0.3f));
-#endif
+        DrawZone(guitarMuteZone, "MUTE",  new Color(1, 0, 0, 0.3f));
+        DrawZone(pianoZone,      "PIANO", new Color(0, 0, 1, 0.3f));
+        DrawZone(drumZone,       "DRUM",  new Color(0, 1, 0, 0.3f));
     }
 
     private void DrawZone(Rect normalizedRect, string label, Color color)
