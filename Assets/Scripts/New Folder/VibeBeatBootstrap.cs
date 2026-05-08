@@ -162,6 +162,7 @@ public class VibeBeatBootstrap : MonoBehaviour
     private bool hapticEnabled = true;
     private int effectLevel = 1; // 0=Düşük 1=Orta 2=Yüksek
     private float masterVolume = 0.7f;
+
     private void BindSettingsButtons()
     {
         if (settingsScreen == null) return;
@@ -185,54 +186,105 @@ public class VibeBeatBootstrap : MonoBehaviour
             recalBtn.onClick.AddListener(ShowCalibration);
         }
 
-        // Haptic toggle
+        // Haptic toggle — tüm satır butona tıklayınca toggle olur
         Button hapticBtn = sp.Find("HapticRow")?.GetComponent<Button>();
         if (hapticBtn != null)
         {
+            TextMeshProUGUI hapticStatus =
+                sp.Find("HapticRow/HapticStatusText")?.GetComponent<TextMeshProUGUI>();
+            Image toggleTrack =
+                sp.Find("HapticRow/ToggleTrack")?.GetComponent<Image>();
+
             hapticBtn.onClick.RemoveAllListeners();
             hapticBtn.onClick.AddListener(() =>
             {
                 hapticEnabled = !hapticEnabled;
-                TextMeshProUGUI t = hapticBtn.GetComponentInChildren<TextMeshProUGUI>();
-                if (t != null)
-                    t.text = "HAPTIC FEEDBACK   " + (hapticEnabled ? "AÇIK" : "KAPALI");
+                if (hapticStatus != null)
+                {
+                    hapticStatus.text  = hapticEnabled ? "AÇIK" : "KAPALI";
+                    hapticStatus.color = hapticEnabled ? ParseHex("#00F0FF") : ParseHex("#8899AA");
+                }
+                if (toggleTrack != null)
+                    toggleTrack.color = hapticEnabled ? ParseHex("#00F0FF") : ParseHex("#1A2535");
                 Debug.Log($"[VibeBeat] Haptic: {hapticEnabled}");
             });
         }
 
-        // Efekt yoğunluğu
-        Button effectBtn = sp.Find("EffectIntensityRow")?.GetComponent<Button>();
-        if (effectBtn != null)
+        // Efekt yoğunluğu — 3 ayrı buton (EffectBtn_Low / Mid / High)
+        Transform effectRow = sp.Find("EffectIntensityRow");
+        if (effectRow != null)
         {
-            effectBtn.onClick.RemoveAllListeners();
-            effectBtn.onClick.AddListener(() =>
+            string[] effNames = { "EffectBtn_Low", "EffectBtn_Mid", "EffectBtn_High" };
+            for (int i = 0; i < effNames.Length; i++)
             {
-                effectLevel = (effectLevel + 1) % 3;
-                string[] levels = { "DÜŞÜK", "ORTA", "YÜKSEK" };
-                TextMeshProUGUI t = effectBtn.GetComponentInChildren<TextMeshProUGUI>();
-                if (t != null)
-                    t.text = "EFEKT YOĞUNLUĞU   " + levels[effectLevel];
-                Debug.Log($"[VibeBeat] Efekt: {levels[effectLevel]}");
-            });
+                int level = i;
+                Button effBtn = effectRow.Find(effNames[i])?.GetComponent<Button>();
+                if (effBtn != null)
+                {
+                    effBtn.onClick.RemoveAllListeners();
+                    effBtn.onClick.AddListener(() =>
+                    {
+                        effectLevel = level;
+                        UpdateEffectButtonVisuals(effectRow, effNames);
+                        Debug.Log($"[VibeBeat] Efekt seviyesi: {level}");
+                    });
+                }
+            }
+            UpdateEffectButtonVisuals(effectRow,
+                new string[] { "EffectBtn_Low", "EffectBtn_Mid", "EffectBtn_High" });
         }
 
-        // Ses seviyesi
-        Button volumeBtn = sp.Find("VolumeRow")?.GetComponent<Button>();
-        if (volumeBtn != null)
+        // Ses seviyesi — Slider bileşeni
+        Transform volumeRow = sp.Find("VolumeRow");
+        if (volumeRow != null)
         {
-            volumeBtn.onClick.RemoveAllListeners();
-            volumeBtn.onClick.AddListener(() =>
+            Slider volSlider =
+                volumeRow.Find("VolumeSlider")?.GetComponent<Slider>();
+            TextMeshProUGUI volText =
+                volumeRow.Find("VolumeValueText")?.GetComponent<TextMeshProUGUI>();
+
+            if (volSlider != null)
             {
-                masterVolume = masterVolume >= 1f ? 0f : masterVolume + 0.1f;
-                if (guitarAudioSource != null) guitarAudioSource.volume = masterVolume;
-                if (pianoAudioSource != null) pianoAudioSource.volume = masterVolume;
-                if (drumAudioSource != null) drumAudioSource.volume = masterVolume;
-                TextMeshProUGUI t = volumeBtn.GetComponentInChildren<TextMeshProUGUI>();
-                if (t != null)
-                    t.text = "SES SEVİYESİ   %" + Mathf.RoundToInt(masterVolume * 100f);
-                Debug.Log($"[VibeBeat] Volume: {masterVolume}");
-            });
+                volSlider.value = masterVolume;
+                volSlider.onValueChanged.RemoveAllListeners();
+                volSlider.onValueChanged.AddListener(val =>
+                {
+                    masterVolume = val;
+                    if (guitarAudioSource != null) guitarAudioSource.volume = val;
+                    if (pianoAudioSource  != null) pianoAudioSource.volume  = val;
+                    if (drumAudioSource   != null) drumAudioSource.volume   = val;
+                    if (volText           != null)
+                        volText.text = Mathf.RoundToInt(val * 100f) + "%";
+                });
+            }
         }
+    }
+
+    private void UpdateEffectButtonVisuals(Transform effectRow, string[] names)
+    {
+        Color activeColor   = ParseHex("#00F0FF");
+        Color inactiveColor = ParseHex("#1A2535");
+        for (int i = 0; i < names.Length; i++)
+        {
+            Transform btnT = effectRow.Find(names[i]);
+            if (btnT == null) continue;
+
+            Image img = btnT.GetComponent<Image>();
+            if (img != null)
+                img.color = i == effectLevel
+                    ? new Color(activeColor.r, activeColor.g, activeColor.b, 0.18f)
+                    : inactiveColor;
+
+            TextMeshProUGUI lbl = btnT.Find("Label")?.GetComponent<TextMeshProUGUI>();
+            if (lbl != null)
+                lbl.color = i == effectLevel ? activeColor : ParseHex("#8899AA");
+        }
+    }
+
+    private static Color ParseHex(string hex)
+    {
+        ColorUtility.TryParseHtmlString(hex, out Color c);
+        return c;
     }
 
     // ─────────────────────────────────────────
@@ -362,41 +414,47 @@ public class VibeBeatBootstrap : MonoBehaviour
     // ─────────────────────────────────────────
     private IEnumerator CalibrationRoutine()
     {
-        SetText(calStepText, "1/2 Elini sensörün üstüne kapat");
-        SetText(calPercentText, "0%");
-        SetText(calLuxText, "Lux: 12.4");
-        SetText(calStatusText, "Durum: Ölçülüyor");
+        // ProgressRing'i hiyerarşide isim ile bul
+        Image progressRing = calibrationScreen?.transform
+            .Find("CalibrationCard/RingContainer/ProgressRing")
+            ?.GetComponent<Image>();
+
+        SetText(calStepText,   "1/2  Elini sensörün üstüne kapat");
+        SetText(calPercentText,"0%");
+        SetText(calLuxText,    "Lux: --");
+        SetText(calStatusText, "Durum: Olculuyor");
+        if (progressRing) progressRing.fillAmount = 0f;
 
         float duration = 2.5f;
-        float timer = 0f;
+        float timer    = 0f;
 
         while (timer < duration)
         {
             timer += Time.deltaTime;
-            float n = Mathf.Clamp01(timer / duration);
-            int pct = Mathf.RoundToInt(n * 100f);
+            float n   = Mathf.Clamp01(timer / duration);
+            int   pct = Mathf.RoundToInt(n * 100f);
 
             SetText(calPercentText, pct + "%");
-            SetText(calLuxText, "Lux: " + Mathf.Lerp(12.4f, 86.7f, n).ToString("0.0"));
+            SetText(calLuxText,     "Lux: " + Mathf.Lerp(12.4f, 86.7f, n).ToString("0.0"));
+            if (progressRing) progressRing.fillAmount = n;
 
             if (pct < 50)
             {
-                SetText(calStepText, "1/2 Elini sensörün üstüne kapat");
-                SetText(calStatusText, "Durum: Ölçülüyor");
+                SetText(calStepText,  "1/2  Elini sensörün üstüne kapat");
+                SetText(calStatusText,"Durum: Olculuyor");
             }
             else
             {
-                SetText(calStepText, "2/2 Elini sensörden uzaklaştır");
-                SetText(calStatusText, "Durum: Analiz ediliyor");
+                SetText(calStepText,  "2/2  Elini sensörden uzaklaştır");
+                SetText(calStatusText,"Durum: Analiz ediliyor");
             }
-
             yield return null;
         }
 
-        SetText(calStepText, "Kalibrasyon tamamlandı ✓");
-        SetText(calPercentText, "100%");
-        SetText(calStatusText, "Durum: Hazır");
-
+        SetText(calStepText,   "Kalibrasyon tamamlandi");
+        SetText(calPercentText,"100%");
+        SetText(calStatusText, "Durum: Hazir");
+        if (progressRing) progressRing.fillAmount = 1f;
         Debug.Log("[VibeBeat] ✅ Kalibrasyon tamamlandı.");
     }
 
@@ -405,23 +463,14 @@ public class VibeBeatBootstrap : MonoBehaviour
     // ─────────────────────────────────────────
     private void BindButton(Transform parent, string childName, UnityEngine.Events.UnityAction action)
     {
-        Transform child = parent.Find(childName);
-        if (child == null) return;
-        Button btn = child.GetComponent<Button>();
+        Button btn = parent.Find(childName)?.GetComponent<Button>();
         if (btn == null) return;
         btn.onClick.RemoveAllListeners();
         btn.onClick.AddListener(action);
     }
 
     private void BindButtonDirect(Transform parent, string childName, UnityEngine.Events.UnityAction action)
-    {
-        Transform child = parent.Find(childName);
-        if (child == null) return;
-        Button btn = child.GetComponent<Button>();
-        if (btn == null) return;
-        btn.onClick.RemoveAllListeners();
-        btn.onClick.AddListener(action);
-    }
+        => BindButton(parent, childName, action);
 
     private GameObject FindChild(Transform parent, string name)
     {
@@ -429,13 +478,6 @@ public class VibeBeatBootstrap : MonoBehaviour
         return child != null ? child.gameObject : null;
     }
 
-    private void SetActive(GameObject go, bool active)
-    {
-        if (go != null) go.SetActive(active);
-    }
-
-    private void SetText(TextMeshProUGUI tmp, string value)
-    {
-        if (tmp != null) tmp.text = value;
-    }
+    private void SetActive(GameObject go, bool active) { if (go != null) go.SetActive(active); }
+    private void SetText(TextMeshProUGUI tmp, string value) { if (tmp != null) tmp.text = value; }
 }

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"d:\\\\VibBeatConsoleProject\\\\VibBeatConsole\" -Recurse)",
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "Bash(Head -50)",
+      "Bash(Remove-Item \"d:\\\\VibBeatConsoleProject\\\\VibBeatConsole\\\\Assets\\\\Scripts\\\\New Folder\\\\CircleRippleExample.cs\" -Force)",
+      "Bash(Remove-Item \"d:\\\\VibBeatConsoleProject\\\\VibBeatConsole\\\\Assets\\\\Scripts\\\\New Folder\\\\CircleRippleExample.cs.meta\" -Force -ErrorAction SilentlyContinue)",
+      "Bash(Remove-Item \"d:\\\\VibBeatConsoleProject\\\\VibBeatConsole\\\\Assets\\\\Scripts\\\\New Folder\\\\EnhancedRippleEffect.cs\" -Force)",
+      "Bash(Remove-Item \"d:\\\\VibBeatConsoleProject\\\\VibBeatConsole\\\\Assets\\\\Scripts\\\\New Folder\\\\EnhancedRippleEffect.cs.meta\" -Force -ErrorAction SilentlyContinue)",
+      "Bash(Remove-Item \"d:\\\\VibBeatConsoleProject\\\\VibBeatConsole\\\\Assets\\\\Scripts\\\\New Folder\\\\WaveRippleEffect.cs\" -Force)"
+    ]
+  }
+}

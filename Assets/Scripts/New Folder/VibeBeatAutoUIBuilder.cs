@@ -1,791 +1,686 @@
-﻿using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem.UI;
+#endif
 
+/// <summary>
+/// Sağ tık → "Build VibeBeat UI" ile Canvas'ı baştan oluşturur.
+/// Efekt / animasyon YOK — bunları kendin ekle.
+/// </summary>
 public class VibeBeatAutoUIBuilder : MonoBehaviour
 {
     private const string CanvasName = "VibeBeatCanvas";
 
-    // Renk Paleti
-    private readonly Color bgDeep = Hex("#020609");
-    private readonly Color bgPanel = Hex("#071018");
-    private readonly Color bgCard = Hex("#0A1520");
-    private readonly Color guitarCyan = Hex("#00F0FF");
-    private readonly Color pianoOrange = Hex("#FFA500");
-    private readonly Color drumMagenta = Hex("#FF1AAD");
-    private readonly Color textWhite = Hex("#F2F2F2");
-    private readonly Color textGray = Hex("#8899AA");
-    private readonly Color passiveGray = Hex("#1A2535");
-    private readonly Color borderGlow = Hex("#00F0FF22");
+    // ─── Renk Paleti ──────────────────────────────────────────────────────────
+    private static readonly Color BgDeep      = Hex("#020609");
+    private static readonly Color BgSurface   = Hex("#071018");
+    private static readonly Color BgCard      = Hex("#0D1A28");
+    private static readonly Color GuitarCyan  = Hex("#00F0FF");
+    private static readonly Color PianoOrange = Hex("#FFA500");
+    private static readonly Color DrumMagenta = Hex("#FF1AAD");
+    private static readonly Color TextWhite   = Hex("#F2F2F2");
+    private static readonly Color TextGray    = Hex("#8899AA");
+    private static readonly Color Passive     = Hex("#1A2535");
+    private static readonly Color Dim         = Hex("#334455");
 
-    private VibeBeatScreenManager screenManager;
+    private VibeBeatScreenManager sm; // screen manager kısaltması
 
+    // ═════════════════════════════════════════════════════════════════════════
     [ContextMenu("Build VibeBeat UI")]
     public void BuildVibeBeatUI()
     {
-        DeleteOldCanvas();
+        var old = GameObject.Find(CanvasName);
+        if (old) DestroyImmediate(old);
         EnsureEventSystem();
 
-        GameObject canvasGO = CreateCanvas();
-        screenManager = canvasGO.AddComponent<VibeBeatScreenManager>();
+        GameObject canvas = MakeCanvas();
+        sm = canvas.AddComponent<VibeBeatScreenManager>();
+        if (!canvas.GetComponent<VibeBeatBootstrap>())
+            canvas.AddComponent<VibeBeatBootstrap>();
 
-        GameObject splash = BuildSplashScreen(canvasGO.transform);
-        GameObject onboarding = BuildOnboardingScreen(canvasGO.transform);
-        GameObject calibration = BuildCalibrationScreen(canvasGO.transform);
-        GameObject main = BuildMainConsoleScreen(canvasGO.transform);
-        GameObject settings = BuildSettingsScreen(canvasGO.transform);
+        var splash  = SplashScreen(canvas.transform);
+        var onboard = OnboardingScreen(canvas.transform);
+        var calib   = CalibrationScreen(canvas.transform);
+        var main    = MainConsoleScreen(canvas.transform);
+        var sett    = SettingsScreen(canvas.transform);
 
-        screenManager.splashScreen = splash;
-        screenManager.onboardingScreen = onboarding;
-        screenManager.calibrationScreen = calibration;
-        screenManager.mainConsoleScreen = main;
-        screenManager.settingsScreen = settings;
+        sm.splashScreen      = splash;
+        sm.onboardingScreen  = onboard;
+        sm.calibrationScreen = calib;
+        sm.mainConsoleScreen = main;
+        sm.settingsScreen    = sett;
 
         splash.SetActive(true);
-        onboarding.SetActive(false);
-        calibration.SetActive(false);
+        onboard.SetActive(false);
+        calib.SetActive(false);
         main.SetActive(false);
-        settings.SetActive(false);
+        sett.SetActive(false);
 
 #if UNITY_EDITOR
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
             UnityEngine.SceneManagement.SceneManager.GetActiveScene());
-        Debug.Log("[VibeBeat] ✅ UI inşa edildi. Ctrl+S ile kaydet!");
+        Debug.Log("[VibeBeat] ✅ UI hazır — Ctrl+S ile kaydet.");
 #endif
     }
 
-    // ─────────────────────────────────────────
-    // SPLASH SCREEN
-    // ─────────────────────────────────────────
-    private GameObject BuildSplashScreen(Transform parent)
+    // ═════════════════════════════════════════════════════════════════════════
+    // SPLASH
+    // ═════════════════════════════════════════════════════════════════════════
+    private GameObject SplashScreen(Transform parent)
     {
-        GameObject root = CreateFullScreenPanel("SplashScreen", parent, bgDeep);
+        var root = FullScreen("SplashScreen", parent, BgDeep);
 
         // Başlık
-        CreateText(root.transform, "TitleText", "VIBEBEAT CONSOLE", 72, textWhite,
-            TextAlignmentOptions.Center,
-            new Vector2(0.1f, 0.66f), new Vector2(0.9f, 0.80f), FontStyles.Bold);
+        Txt(root, "TitleA", "VIBEBEAT", 80, TextWhite, Anchor.Center,
+            0.05f, 0.50f, 0.69f, 0.81f, bold: true);
+        Txt(root, "TitleB", "CONSOLE", 80, GuitarCyan, Anchor.Center,
+            0.50f, 0.95f, 0.69f, 0.81f, bold: true);
 
-        CreateText(root.transform, "SubtitleText", "SENSÖR TABANLI MÜZİK DENEYİMİ", 28, guitarCyan,
-            TextAlignmentOptions.Center,
-            new Vector2(0.1f, 0.59f), new Vector2(0.9f, 0.66f), FontStyles.Normal);
-
-        // Dalga görseli
-        BuildAnimatedWaveform(root.transform, "SplashWave",
-            new Vector2(0.15f, 0.43f), new Vector2(0.85f, 0.56f));
+        // Alt başlık
+        Txt(root, "Subtitle", "Sensör Tabanlı Müzik Deneyimi", 26, TextGray,
+            Anchor.Center, 0.15f, 0.85f, 0.62f, 0.69f);
 
         // Başla butonu
-        Button startBtn = CreateGlowButton(root.transform, "StartButton", "BAŞLA  ›",
-            guitarCyan, new Vector2(0.38f, 0.26f), new Vector2(0.62f, 0.38f));
-        startBtn.onClick.AddListener(screenManager.ShowOnboarding);
+        var startBtn = GlowBtn(root.transform, "StartButton", "BASLA  >",
+            GuitarCyan, 0.37f, 0.63f, 0.24f, 0.36f);
+        startBtn.onClick.AddListener(sm.ShowOnboarding);
 
-        // Ripple animasyonu buta ekle
-        NeonRippleFeedback ripple = startBtn.gameObject.AddComponent<NeonRippleFeedback>();
-        ripple.rippleColor = guitarCyan;
-
-        CreateText(root.transform, "FooterText", "SAMSUNG S20 FE İÇİN OPTİMİZE EDİLDİ", 20, Hex("#334455"),
-            TextAlignmentOptions.Center,
-            new Vector2(0.2f, 0.06f), new Vector2(0.8f, 0.12f), FontStyles.Normal);
+        // Alt yazı
+        Txt(root, "Footer", "Samsung S20 FE icin optimize edildi",
+            20, Dim, Anchor.Center, 0.20f, 0.80f, 0.07f, 0.13f);
 
         return root;
     }
 
-    // ─────────────────────────────────────────
-    // ONBOARDING SCREEN
-    // ─────────────────────────────────────────
-    private GameObject BuildOnboardingScreen(Transform parent)
+    // ═════════════════════════════════════════════════════════════════════════
+    // ONBOARDING
+    // ═════════════════════════════════════════════════════════════════════════
+    private GameObject OnboardingScreen(Transform parent)
     {
-        GameObject root = CreateFullScreenPanel("OnboardingScreen", parent, bgDeep);
+        var root = FullScreen("OnboardingScreen", parent, BgDeep);
+        TopBar(root.transform, settings: false, back: false, dots: false);
 
-        // TopBar
-        BuildTopBar(root.transform, showSettings: false, showBack: false);
+        Txt(root, "Title", "NASIL KULLANILIR?", 58, TextWhite,
+            Anchor.Center, 0.10f, 0.90f, 0.80f, 0.91f, bold: true);
+        Txt(root, "Sub", "VibeBeat Console'u keşfetmeye başlamak çok kolay.",
+            24, TextGray, Anchor.Center, 0.10f, 0.90f, 0.73f, 0.80f);
 
-        // Başlık
-        CreateText(root.transform, "TitleText", "NASIL KULLANILIR?", 60, textWhite,
-            TextAlignmentOptions.Center,
-            new Vector2(0.1f, 0.78f), new Vector2(0.9f, 0.90f), FontStyles.Bold);
+        OnboardCard(root.transform, "GuitarCard", "1", "GİTAR",
+            "Elini sensöre yaklaştırarak sesi kontrol et",
+            GuitarCyan, 0.03f, 0.33f, 0.26f, 0.70f);
 
-        CreateText(root.transform, "SubText",
-            "VibeBeat Console'u keşfetmeye başlamak çok kolay",
-            26, textGray, TextAlignmentOptions.Center,
-            new Vector2(0.1f, 0.72f), new Vector2(0.9f, 0.79f), FontStyles.Normal);
+        OnboardCard(root.transform, "PianoCard", "2", "PİYANO",
+            "Sağ üstteki tuşlara dokun",
+            PianoOrange, 0.36f, 0.64f, 0.26f, 0.70f);
 
-        // 3 kart
-        BuildOnboardingCard(root.transform, "GuitarCard",
-            "1", "GİTAR",
-            "Elini sensöre yaklaştırarak\nsesi kontrol et",
-            guitarCyan,
-            new Vector2(0.04f, 0.28f), new Vector2(0.32f, 0.70f));
+        OnboardCard(root.transform, "DrumCard", "3", "DAVUL",
+            "Sağ alttaki pad ile ritim vur",
+            DrumMagenta, 0.67f, 0.97f, 0.26f, 0.70f);
 
-        BuildOnboardingCard(root.transform, "PianoCard",
-            "2", "PİYANO",
-            "Sağ üstteki tuşlara\ndokun",
-            pianoOrange,
-            new Vector2(0.36f, 0.28f), new Vector2(0.64f, 0.70f));
+        // Sayfa noktaları
+        Txt(root, "Dots",    "*  o  o", 20, GuitarCyan,
+            Anchor.Center, 0.36f, 0.64f, 0.13f, 0.19f);
+        Txt(root, "PageNum", "1 / 3",   18, TextGray,
+            Anchor.Center, 0.36f, 0.64f, 0.07f, 0.13f);
 
-        BuildOnboardingCard(root.transform, "DrumCard",
-            "3", "DAVUL",
-            "Sağ alttaki pad ile\nritim vur",
-            drumMagenta,
-            new Vector2(0.68f, 0.28f), new Vector2(0.96f, 0.70f));
-
-        // Devam butonu
-        Button continueBtn = CreateGlowButton(root.transform, "ContinueButton", "DEVAM ET  ›",
-            guitarCyan, new Vector2(0.72f, 0.10f), new Vector2(0.96f, 0.22f));
-        continueBtn.onClick.AddListener(screenManager.ShowCalibration);
-
-        NeonRippleFeedback ripple = continueBtn.gameObject.AddComponent<NeonRippleFeedback>();
-        ripple.rippleColor = guitarCyan;
+        var btn = GlowBtn(root.transform, "ContinueButton", "DEVAM ET  >",
+            GuitarCyan, 0.72f, 0.97f, 0.07f, 0.20f);
+        btn.onClick.AddListener(sm.ShowCalibration);
 
         return root;
     }
 
-    private void BuildOnboardingCard(Transform parent, string name,
-        string number, string title, string desc,
-        Color accent, Vector2 aMin, Vector2 aMax)
+    private void OnboardCard(Transform parent, string name,
+        string num, string title, string desc, Color accent,
+        float x0, float x1, float y0, float y1)
     {
-        // Ana kart
-        GameObject card = CreatePanel(name, parent, bgPanel, aMin, aMax);
-        Image cardImg = card.GetComponent<Image>();
-        cardImg.color = bgPanel;
+        var card = Panel(name, parent, BgCard, x0, x1, y0, y1);
 
-        // Sol kenar çizgisi (accent bar)
-        GameObject bar = CreatePanel("AccentBar", card.transform, accent,
-            new Vector2(0f, 0f), new Vector2(0.025f, 1f));
+        // Sol renkli kenar çizgisi
+        Panel("Edge", card.transform, accent, 0f, 0.022f, 0f, 1f);
 
-        // Büyük numara (arka planda)
-        CreateText(card.transform, "BigNum", number, 120, new Color(accent.r, accent.g, accent.b, 0.08f),
-            TextAlignmentOptions.Right,
-            new Vector2(0.5f, 0.4f), new Vector2(0.98f, 0.95f), FontStyles.Bold);
+        // Büyük arka plan rakamı (şeffaf)
+        Txt(card, "BigNum", num, 110,
+            new Color(accent.r, accent.g, accent.b, 0.06f),
+            Anchor.Right, 0.45f, 0.96f, 0.40f, 0.95f, bold: true);
 
-        // Başlık
-        CreateText(card.transform, "CardTitle", title, 42, accent,
-            TextAlignmentOptions.Left,
-            new Vector2(0.1f, 0.60f), new Vector2(0.9f, 0.80f), FontStyles.Bold);
-
-        // Açıklama
-        CreateText(card.transform, "CardDesc", desc, 26, textGray,
-            TextAlignmentOptions.Left,
-            new Vector2(0.1f, 0.20f), new Vector2(0.9f, 0.58f), FontStyles.Normal);
-
-        // Kart animasyonu
-        OnboardingCardPulse pulse = card.AddComponent<OnboardingCardPulse>();
-        pulse.accentColor = accent;
-        pulse.cardImage = cardImg;
+        Txt(card, "Num",   num,   30, accent,  Anchor.Left,   0.08f, 0.30f, 0.83f, 0.96f, bold: true);
+        Txt(card, "Title", title, 38, accent,  Anchor.Center, 0.05f, 0.95f, 0.55f, 0.72f, bold: true);
+        Txt(card, "Desc",  desc,  22, TextGray,Anchor.Center, 0.07f, 0.93f, 0.08f, 0.55f);
     }
 
-    // ─────────────────────────────────────────
-    // CALIBRATION SCREEN
-    // ─────────────────────────────────────────
-    private GameObject BuildCalibrationScreen(Transform parent)
+    // ═════════════════════════════════════════════════════════════════════════
+    // CALİBRASYON
+    // ═════════════════════════════════════════════════════════════════════════
+    private GameObject CalibrationScreen(Transform parent)
     {
-        GameObject root = CreateFullScreenPanel("CalibrationScreen", parent, bgDeep);
-        BuildTopBar(root.transform, showSettings: true, showBack: false);
+        var root = FullScreen("CalibrationScreen", parent, BgDeep);
+        TopBar(root.transform, settings: true, back: false, dots: true);
 
-        GameObject card = CreatePanel("CalibrationCard", root.transform, bgPanel,
-            new Vector2(0.28f, 0.12f), new Vector2(0.72f, 0.90f));
+        var card = Panel("CalibrationCard", root.transform, BgSurface,
+            0.26f, 0.74f, 0.07f, 0.90f);
 
-        CreateText(card.transform, "TitleText", "SENSÖR KALİBRASYONU", 34, textWhite,
-            TextAlignmentOptions.Center,
-            new Vector2(0.05f, 0.82f), new Vector2(0.95f, 0.93f), FontStyles.Bold);
+        Txt(card, "Icon",      "+",                           38, GuitarCyan, Anchor.Center, 0.30f, 0.70f, 0.87f, 0.97f);
+        Txt(card, "CardTitle", "Sensor Kalibrasyonu",          30, TextWhite,  Anchor.Center, 0.05f, 0.95f, 0.79f, 0.88f, bold: true);
 
-        TextMeshProUGUI stepText = CreateText(card.transform, "StepText",
-            "1/2  Elini sensörün üstüne kapat", 24, textGray,
-            TextAlignmentOptions.Center,
-            new Vector2(0.05f, 0.73f), new Vector2(0.95f, 0.82f), FontStyles.Normal);
+        var stepText = Txt(card, "StepText",
+            "1/2  Elini sensorun ustune kapat", 21, TextGray,
+            Anchor.Center, 0.05f, 0.95f, 0.72f, 0.79f);
 
-        TextMeshProUGUI percentText = CreateText(card.transform, "PercentText", "0%", 96, guitarCyan,
-            TextAlignmentOptions.Center,
-            new Vector2(0.1f, 0.45f), new Vector2(0.9f, 0.72f), FontStyles.Bold);
+        // ── İlerleme halkası (sabit kare) ─────────────────────────────────
+        var ringCont = new GameObject("RingContainer");
+        ringCont.transform.SetParent(card.transform, false);
+        var rcRT = ringCont.AddComponent<RectTransform>();
+        rcRT.anchorMin = rcRT.anchorMax = new Vector2(0.50f, 0.57f);
+        rcRT.sizeDelta = new Vector2(220f, 220f);
 
-        CreateText(card.transform, "ProgressLabel", "İLERLİYOR", 20, Hex("#446677"),
-            TextAlignmentOptions.Center,
-            new Vector2(0.1f, 0.40f), new Vector2(0.9f, 0.46f), FontStyles.Normal);
+        // Arka plan dolu daire
+        RingLayer(ringCont.transform, "RingBG",
+            CircleSprite(256), Hex("#0B1825"), 0f, 1f, 0f, 1f);
 
-        GameObject infoBar = CreatePanel("InfoBar", card.transform, bgCard,
-            new Vector2(0.08f, 0.28f), new Vector2(0.92f, 0.38f));
+        // İlerleme halkası (doldurulan)
+        var ringGO = RingLayer(ringCont.transform, "ProgressRing",
+            RingSprite(256, 0.93f, 0.67f), GuitarCyan, 0f, 1f, 0f, 1f);
+        var ringImg = ringGO.GetComponent<Image>();
+        ringImg.type       = Image.Type.Filled;
+        ringImg.fillMethod = Image.FillMethod.Radial360;
+        ringImg.fillOrigin = (int)Image.Origin360.Top;
+        ringImg.fillAmount = 0f;
 
-        TextMeshProUGUI luxText = CreateText(infoBar.transform, "LuxText", "Lux: 12.4", 24, textGray,
-            TextAlignmentOptions.Left,
-            new Vector2(0.05f, 0f), new Vector2(0.48f, 1f), FontStyles.Normal);
+        // İç kapak (donut efekti)
+        RingLayer(ringCont.transform, "RingCenter",
+            CircleSprite(256), BgSurface, 0.17f, 0.83f, 0.17f, 0.83f);
 
-        TextMeshProUGUI statusText = CreateText(infoBar.transform, "StatusText", "Durum: Ölçülüyor", 24, textGray,
-            TextAlignmentOptions.Right,
-            new Vector2(0.52f, 0f), new Vector2(0.95f, 1f), FontStyles.Normal);
+        // Yüzde ve etiket — card üzerinde, ring'in üstüne
+        var percentText = Txt(card, "PercentText", "0%",    60, GuitarCyan,
+            Anchor.Center, 0.20f, 0.80f, 0.46f, 0.68f, bold: true);
+        Txt(card, "ProgressLabel", "İLERLİYOR", 17, Dim,
+            Anchor.Center, 0.20f, 0.80f, 0.41f, 0.46f);
 
-        Button retryBtn = CreatePanel("RetryButton", card.transform, passiveGray,
-            new Vector2(0.08f, 0.08f), new Vector2(0.44f, 0.22f)).AddComponent<Button>();
+        // Bilgi çubuğu
+        var infoBar = Panel("InfoBar", card.transform, BgCard,
+            0.06f, 0.94f, 0.27f, 0.37f);
+        var luxText = Txt(infoBar, "LuxText",    "Lux: --",           19, TextGray, Anchor.Left,  0.04f, 0.48f, 0.10f, 0.90f);
+        var statTxt = Txt(infoBar, "StatusText", "Durum: Bekliyor",   19, TextGray, Anchor.Right, 0.52f, 0.96f, 0.10f, 0.90f);
+
+        // Butonlar
+        var retryGO = Panel("RetryButton", card.transform, Passive, 0.06f, 0.45f, 0.08f, 0.22f);
+        var retryBtn = retryGO.AddComponent<Button>();
         retryBtn.transition = Selectable.Transition.None;
-        CreateText(retryBtn.transform, "Label", "↺  TEKRAR DENE", 22, textGray,
-            TextAlignmentOptions.Center, Vector2.zero, Vector2.one, FontStyles.Bold);
+        Txt(retryGO, "Label", "TEKRAR DENE",    19, TextGray, Anchor.Center, 0f, 1f, 0f, 1f, bold: true);
 
-        Button contBtn = CreateGlowButton(card.transform, "ContinueButton", "DEVAM  ›",
-            guitarCyan, new Vector2(0.56f, 0.08f), new Vector2(0.92f, 0.22f));
-        contBtn.onClick.AddListener(screenManager.ShowMainConsole);
+        var contBtn = GlowBtn(card.transform, "ContinueButton", "DEVAM  >",
+            GuitarCyan, 0.55f, 0.94f, 0.08f, 0.22f);
+        contBtn.onClick.AddListener(sm.ShowMainConsole);
 
-        CalibrationDemoController ctrl = root.AddComponent<CalibrationDemoController>();
-        ctrl.stepText = stepText;
-        ctrl.percentText = percentText;
-        ctrl.luxText = luxText;
-        ctrl.statusText = statusText;
-
-        retryBtn.onClick.AddListener(ctrl.RestartCalibration);
-
-        return root;
-    }
-
-    // ─────────────────────────────────────────
-    // MAIN CONSOLE
-    // ─────────────────────────────────────────
-    private GameObject BuildMainConsoleScreen(Transform parent)
-    {
-        GameObject root = CreateFullScreenPanel("MainConsoleScreen", parent, bgDeep);
-        BuildTopBar(root.transform, showSettings: true, showBack: false);
-
-        // Guitar Panel
-        GameObject guitarPanel = CreatePanel("GuitarPanel", root.transform, bgPanel,
-            new Vector2(0.015f, 0.05f), new Vector2(0.295f, 0.88f));
-        BuildGuitarPanel(guitarPanel.transform);
-
-        // Sağ panel
-        GameObject rightPanel = CreatePanel("RightPanel", root.transform, bgDeep,
-            new Vector2(0.310f, 0.05f), new Vector2(0.985f, 0.88f));
-
-        GameObject pianoPanel = CreatePanel("PianoPanel", rightPanel.transform, bgPanel,
-            new Vector2(0f, 0.52f), new Vector2(1f, 1f));
-        BuildPianoPanel(pianoPanel.transform);
-
-        GameObject drumPanel = CreatePanel("DrumPanel", rightPanel.transform, bgPanel,
-            new Vector2(0f, 0f), new Vector2(1f, 0.48f));
-        BuildDrumPanel(drumPanel.transform);
+        // Bootstrap'in CalibrationRoutine'i bu alanları isim ile bulur
+        // stepText → "CalibrationCard/StepText"
+        // percentText → "CalibrationCard/PercentText"
+        // luxText → "CalibrationCard/InfoBar/LuxText"
+        // statTxt → "CalibrationCard/InfoBar/StatusText"
+        // ringImg → "CalibrationCard/RingContainer/ProgressRing"
+        retryBtn.onClick.AddListener(sm.ShowCalibration); // yeniden başlat
 
         return root;
     }
 
-    private void BuildGuitarPanel(Transform parent)
+    // ═════════════════════════════════════════════════════════════════════════
+    // MAIN CONSOLE  — panel sınırı yok, elemanlar serbest yüzer
+    // ═════════════════════════════════════════════════════════════════════════
+    private GameObject MainConsoleScreen(Transform parent)
     {
-        CreateText(parent, "TitleText", "GUITAR", 44, guitarCyan,
-            TextAlignmentOptions.Center,
-            new Vector2(0.05f, 0.84f), new Vector2(0.95f, 0.94f), FontStyles.Bold);
+        var root = FullScreen("MainConsoleScreen", parent, BgDeep);
+        TopBar(root.transform, settings: true, back: false, dots: false);
 
-        CreateText(parent, "SensorLabel", "SENSÖR SEVİYESİ", 22, textGray,
-            TextAlignmentOptions.Center,
-            new Vector2(0.05f, 0.76f), new Vector2(0.95f, 0.83f), FontStyles.Normal);
+        // ── GİTAR alanı (sol %30) ─────────────────────────────────────────
+        var gArea = EmptyRect("GuitarPanel", root.transform, 0.012f, 0.295f, 0.04f, 0.90f);
 
-        CreateText(parent, "SensorValueText", "0.63", 80, textWhite,
-            TextAlignmentOptions.Center,
-            new Vector2(0.05f, 0.60f), new Vector2(0.95f, 0.76f), FontStyles.Bold);
+        Txt(gArea, "TitleText",     "GUITAR",         38, GuitarCyan, Anchor.Center, 0.05f, 0.95f, 0.87f, 0.97f, bold: true);
+        Txt(gArea, "SensorLabel",   "SENSOR SEVIYESI",18, TextGray,   Anchor.Center, 0.05f, 0.95f, 0.80f, 0.87f);
+        Txt(gArea, "SensorValueText","0.00",           58, TextWhite,  Anchor.Center, 0.05f, 0.95f, 0.66f, 0.81f, bold: true);
 
-        // Canlı dalga alanı
-        GameObject waveArea = CreatePanel("WaveformArea", parent, bgCard,
-            new Vector2(0.06f, 0.36f), new Vector2(0.94f, 0.58f));
-        BuildAnimatedWaveform(waveArea.transform, "GuitarWave",
-            new Vector2(0.02f, 0.1f), new Vector2(0.98f, 0.9f));
+        // Dalga alanı — boş bırakıldı, animasyonunu kendin ekle
+        Panel("WaveformArea", gArea.transform, Hex("#0A1520"),
+            0.06f, 0.94f, 0.28f, 0.62f);
 
-        Button calBtn = CreateGlowButton(parent, "CalibrateButton", "⊙  KALİBRE ET",
-            guitarCyan, new Vector2(0.08f, 0.20f), new Vector2(0.92f, 0.30f));
-        calBtn.onClick.AddListener(screenManager.ShowCalibration);
+        var calBtn = GlowBtn(gArea.transform, "CalibrateButton", "KALIBRE ET",
+            GuitarCyan, 0.06f, 0.94f, 0.14f, 0.25f);
+        calBtn.onClick.AddListener(sm.ShowCalibration);
 
-        Button muteBtn = CreatePanel("MuteButton", parent, passiveGray,
-            new Vector2(0.08f, 0.07f), new Vector2(0.92f, 0.17f)).AddComponent<Button>();
+        var muteGO = Panel("MuteButton", gArea.transform, Passive, 0.06f, 0.94f, 0.01f, 0.12f);
+        var muteBtn = muteGO.AddComponent<Button>();
         muteBtn.transition = Selectable.Transition.None;
-        CreateText(muteBtn.transform, "Label", "⊘  MUTE", 24, textGray,
-            TextAlignmentOptions.Center, Vector2.zero, Vector2.one, FontStyles.Bold);
+        Txt(muteGO, "Label", "MUTE", 22, TextGray, Anchor.Center, 0f, 1f, 0f, 1f, bold: true);
 
-        NeonRippleFeedback mRipple = muteBtn.gameObject.AddComponent<NeonRippleFeedback>();
-        mRipple.rippleColor = guitarCyan;
-    }
+        // İnce dikey separator çizgisi
+        Panel("VSep", root.transform, Hex("#00F0FF22"), 0.298f, 0.302f, 0.04f, 0.90f);
 
-    private void BuildPianoPanel(Transform parent)
-    {
-        CreateText(parent, "TitleText", "PIANO", 38, pianoOrange,
-            TextAlignmentOptions.Left,
-            new Vector2(0.03f, 0.76f), new Vector2(0.6f, 0.94f), FontStyles.Bold);
+        // ── SAĞ PANEL (Piano + Drum) — Bootstrap bunun üstünden buluyor ──
+        var right = EmptyRect("RightPanel", root.transform, 0.308f, 0.988f, 0.04f, 0.90f);
+
+        // ── PİYANO alanı (sağ üst %50) ───────────────────────────────────
+        var pArea = EmptyRect("PianoPanel", right.transform, 0f, 1f, 0.535f, 1f);
+
+        Txt(pArea, "TitleText", "PIANO", 34, PianoOrange, Anchor.Left,
+            0.02f, 0.40f, 0.76f, 0.95f, bold: true);
 
         string[] notes = { "C4", "D4", "E4", "F4" };
-        for (int i = 0; i < notes.Length; i++)
+        for (int i = 0; i < 4; i++)
         {
-            float sx = 0.03f + i * 0.238f;
-            float ex = sx + 0.210f;
-
-            GameObject keyGO = CreatePanel("PianoKey_" + notes[i], parent, bgCard,
-                new Vector2(sx, 0.10f), new Vector2(ex, 0.72f));
-
-            Button keyBtn = keyGO.AddComponent<Button>();
-            keyBtn.transition = Selectable.Transition.None;
-
-            CreateText(keyGO.transform, "NoteLabel", notes[i], 24, Hex("#556677"),
-                TextAlignmentOptions.Center,
-                new Vector2(0f, 0.02f), new Vector2(1f, 0.18f), FontStyles.Normal);
-
-            NeonRippleFeedback fb = keyGO.AddComponent<NeonRippleFeedback>();
-            fb.rippleColor = pianoOrange;
-            fb.expandRadius = 1.8f;
-
-            SimplePressFeedback press = keyGO.AddComponent<SimplePressFeedback>();
-            press.idleColor = bgCard;
-            press.pressColor = new Color(pianoOrange.r, pianoOrange.g, pianoOrange.b, 0.15f);
+            float kx0 = 0.02f + i * 0.245f;
+            float kx1 = kx0 + 0.225f;
+            var key = Panel("PianoKey_" + notes[i], pArea.transform,
+                BgCard, kx0, kx1, 0.06f, 0.72f);
+            var kb = key.AddComponent<Button>();
+            kb.transition = Selectable.Transition.None;
+            // Dikey gösterge çizgisi
+            Panel("Line", key.transform, Hex("#FFFFFF15"),
+                0.44f, 0.56f, 0.10f, 0.90f);
+            Txt(key, "NoteLabel", notes[i], 22, Dim,
+                Anchor.Center, 0f, 1f, 0.01f, 0.17f);
         }
-    }
 
-    private void BuildDrumPanel(Transform parent)
-    {
-        CreateText(parent, "TitleText", "DRUM", 38, drumMagenta,
-            TextAlignmentOptions.Left,
-            new Vector2(0.03f, 0.76f), new Vector2(0.6f, 0.94f), FontStyles.Bold);
+        // İnce yatay separator
+        Panel("HSep", right.transform, Hex("#FFFFFF11"), 0f, 1f, 0.529f, 0.541f);
 
-        GameObject padGO = CreatePanel("DrumPad", parent, bgCard,
-            new Vector2(0.03f, 0.08f), new Vector2(0.97f, 0.70f));
+        // ── DAVUL alanı (sağ alt %48) ─────────────────────────────────────
+        var dArea = EmptyRect("DrumPanel", right.transform, 0f, 1f, 0f, 0.523f);
 
-        Button padBtn = padGO.AddComponent<Button>();
+        Txt(dArea, "TitleText", "DRUM", 34, DrumMagenta, Anchor.Left,
+            0.02f, 0.40f, 0.77f, 0.95f, bold: true);
+
+        var padGO = Panel("DrumPad", dArea.transform, BgCard, 0.02f, 0.98f, 0.06f, 0.72f);
+        var padBtn = padGO.AddComponent<Button>();
         padBtn.transition = Selectable.Transition.None;
 
-        NeonRippleFeedback fb = padGO.AddComponent<NeonRippleFeedback>();
-        fb.rippleColor = drumMagenta;
-        fb.expandRadius = 3.5f;
-        fb.pulseScale = 1.06f;
+        // Halka görselleri — sabit kare kapsayıcı içinde, clip yok (serbest)
+        var rh = EmptyRect("RingHolder", padGO.transform,
+            0.5f, 0.5f, 0.5f, 0.5f);
+        rh.GetComponent<RectTransform>().sizeDelta = new Vector2(140f, 140f);
 
-        SimplePressFeedback press = padGO.AddComponent<SimplePressFeedback>();
-        press.idleColor = bgCard;
-        press.pressColor = new Color(drumMagenta.r, drumMagenta.g, drumMagenta.b, 0.15f);
-    }
-
-    // ─────────────────────────────────────────
-    // SETTINGS SCREEN
-    // ─────────────────────────────────────────
-    private GameObject BuildSettingsScreen(Transform parent)
-    {
-        GameObject root = CreateFullScreenPanel("SettingsScreen", parent, bgDeep);
-        BuildTopBar(root.transform, showSettings: false, showBack: true);
-
-        CreateText(root.transform, "TitleText", "AYARLAR", 60, textWhite,
-            TextAlignmentOptions.Left,
-            new Vector2(0.05f, 0.78f), new Vector2(0.6f, 0.90f), FontStyles.Bold);
-
-        GameObject panel = CreatePanel("SettingsPanel", root.transform, bgPanel,
-            new Vector2(0.05f, 0.18f), new Vector2(0.95f, 0.76f));
-
-        float[] rowTops = { 0.80f, 0.62f, 0.44f, 0.26f, 0.08f };
-        float[] rowBottoms = { 0.94f, 0.76f, 0.58f, 0.40f, 0.22f };
-        string[] labels = {
-            "TEKRAR KALİBRE ET",
-            "HAPTIC FEEDBACK   AÇIK",
-            "EFEKT YOĞUNLUĞU   ORTA",
-            "SES SEVİYESİ   %70",
-            "HAKKINDA"
-        };
-
-        for (int i = 0; i < labels.Length; i++)
+        float[] rs = { 1.00f, 0.72f, 0.48f, 0.28f };
+        float[] al = { 0.08f, 0.18f, 0.35f, 0.65f };
+        for (int i = 0; i < rs.Length; i++)
         {
-            Button row = CreateSettingsRow(panel.transform,
-                "Row_" + i, labels[i],
-                new Vector2(0.02f, rowBottoms[i] - 0.14f),
-                new Vector2(0.98f, rowBottoms[i]));
-
-            if (i == 0) row.onClick.AddListener(screenManager.ShowCalibration);
+            float h = rs[i] * 0.5f;
+            var ring = new GameObject("Ring_" + i);
+            ring.transform.SetParent(rh.transform, false);
+            var rRT = ring.AddComponent<RectTransform>();
+            rRT.anchorMin = new Vector2(0.5f - h, 0.5f - h);
+            rRT.anchorMax = new Vector2(0.5f + h, 0.5f + h);
+            rRT.offsetMin = rRT.offsetMax = Vector2.zero;
+            var ri = ring.AddComponent<Image>();
+            ri.sprite = CircleSprite(128);
+            ri.color  = new Color(DrumMagenta.r, DrumMagenta.g, DrumMagenta.b, al[i]);
+            ri.raycastTarget = false;
         }
-
-        Button backBtn = CreateGlowButton(root.transform, "BackToMainButton", "⌂  ANA EKRANA DÖN",
-            guitarCyan, new Vector2(0.30f, 0.05f), new Vector2(0.70f, 0.15f));
-        backBtn.onClick.AddListener(screenManager.ShowMainConsole);
-
-        NeonRippleFeedback ripple = backBtn.gameObject.AddComponent<NeonRippleFeedback>();
-        ripple.rippleColor = guitarCyan;
 
         return root;
     }
 
-    // ─────────────────────────────────────────
+    // ═════════════════════════════════════════════════════════════════════════
+    // AYARLAR
+    // ═════════════════════════════════════════════════════════════════════════
+    private GameObject SettingsScreen(Transform parent)
+    {
+        var root = FullScreen("SettingsScreen", parent, BgDeep);
+        TopBar(root.transform, settings: false, back: true, dots: false);
+
+        Txt(root, "SettingsTitle", "AYARLAR", 56, TextWhite,
+            Anchor.Left, 0.06f, 0.70f, 0.80f, 0.92f, bold: true);
+
+        var panel = Panel("SettingsPanel", root.transform, BgSurface,
+            0.05f, 0.95f, 0.15f, 0.78f);
+
+        // Row 1: Tekrar kalibre
+        SettingsNav(panel.transform, "RecalibrateRow", "+", "TEKRAR KALIBRE ET", 0.83f, 0.96f)
+            .onClick.AddListener(sm.ShowCalibration);
+
+        // Row 2: Haptic toggle
+        HapticRow(panel.transform, 0.64f, 0.78f);
+
+        // Row 3: Efekt yoğunluğu
+        EffectRow(panel.transform, 0.44f, 0.58f);
+
+        // Row 4: Ses seviyesi
+        VolumeRow(panel.transform, 0.24f, 0.38f);
+
+        // Row 5: Hakkında
+        SettingsNav(panel.transform, "AboutRow", "i", "HAKKINDA", 0.04f, 0.18f);
+
+        var backBtn = GlowBtn(root.transform, "BackToMainButton",
+            "ANA EKRANA DON", GuitarCyan, 0.30f, 0.70f, 0.03f, 0.13f);
+        backBtn.onClick.AddListener(sm.ShowMainConsole);
+
+        return root;
+    }
+
+    private Button SettingsNav(Transform parent, string name,
+        string icon, string label, float y0, float y1)
+    {
+        var row = Panel(name, parent, BgCard, 0.012f, 0.988f, y0, y1);
+        var btn = row.AddComponent<Button>();
+        btn.transition = Selectable.Transition.None;
+        Txt(row, "Icon",  icon,  26, GuitarCyan, Anchor.Center, 0.02f, 0.09f, 0.10f, 0.90f);
+        Txt(row, "Label", label, 22, TextGray,   Anchor.Left,   0.11f, 0.87f, 0.10f, 0.90f, bold: true);
+        Txt(row, "Arrow", ">",   30, Dim,         Anchor.Right,  0.90f, 0.99f, 0.10f, 0.90f);
+        Panel("Sep", row.transform, Hex("#FFFFFF08"), 0f, 1f, 0f, 0.03f);
+        return btn;
+    }
+
+    private void HapticRow(Transform parent, float y0, float y1)
+    {
+        var row = Panel("HapticRow", parent, BgCard, 0.012f, 0.988f, y0, y1);
+        var btn = row.AddComponent<Button>();
+        btn.transition = Selectable.Transition.None;
+        Txt(row, "Icon",  ">",              26, GuitarCyan, Anchor.Center, 0.02f, 0.09f, 0.10f, 0.90f);
+        Txt(row, "Label", "HAPTIC FEEDBACK", 22, TextGray,  Anchor.Left,   0.11f, 0.65f, 0.10f, 0.90f, bold: true);
+
+        // Toggle görsel (Bootstrap bunları isme göre bulur)
+        var track = Panel("ToggleTrack", row.transform, GuitarCyan,
+            0.71f, 0.87f, 0.22f, 0.78f);
+        Panel("ToggleHandle", track.transform, Color.white,
+            0.52f, 0.96f, 0.08f, 0.92f);
+
+        Txt(row, "HapticStatusText", "ACIK", 20, GuitarCyan,
+            Anchor.Right, 0.87f, 0.99f, 0.20f, 0.80f, bold: true);
+        Panel("Sep", row.transform, Hex("#FFFFFF08"), 0f, 1f, 0f, 0.03f);
+    }
+
+    private void EffectRow(Transform parent, float y0, float y1)
+    {
+        var row = Panel("EffectIntensityRow", parent, BgCard, 0.012f, 0.988f, y0, y1);
+        Txt(row, "Icon",  "#",               26, GuitarCyan, Anchor.Center, 0.02f, 0.09f, 0.10f, 0.90f);
+        Txt(row, "Label", "EFEKT YOGUNLUGU", 22, TextGray,  Anchor.Left,   0.11f, 0.46f, 0.10f, 0.90f, bold: true);
+
+        string[] names  = { "EffectBtn_Low", "EffectBtn_Mid", "EffectBtn_High" };
+        string[] labels = { "DUSUK",          "ORTA",          "YUKSEK" };
+        float[]  xs     = { 0.47f, 0.63f, 0.79f };
+        for (int i = 0; i < 3; i++)
+        {
+            bool active = i == 1; // başlangıçta ORTA aktif
+            var bg = active
+                ? new Color(GuitarCyan.r, GuitarCyan.g, GuitarCyan.b, 0.18f)
+                : Passive;
+            var b = Panel(names[i], row.transform, bg, xs[i], xs[i] + 0.13f, 0.15f, 0.85f);
+            var bt = b.AddComponent<Button>();
+            bt.transition = Selectable.Transition.None;
+            Txt(b, "Label", labels[i], 18, active ? GuitarCyan : TextGray,
+                Anchor.Center, 0f, 1f, 0f, 1f, bold: true);
+        }
+        Panel("Sep", row.transform, Hex("#FFFFFF08"), 0f, 1f, 0f, 0.03f);
+    }
+
+    private void VolumeRow(Transform parent, float y0, float y1)
+    {
+        var row = Panel("VolumeRow", parent, BgCard, 0.012f, 0.988f, y0, y1);
+        Txt(row, "Icon",  "VOL",         26, GuitarCyan, Anchor.Center, 0.02f, 0.09f, 0.10f, 0.90f);
+        Txt(row, "Label", "SES SEVIYESI",22, TextGray,  Anchor.Left,   0.11f, 0.39f, 0.10f, 0.90f, bold: true);
+
+        // Slider
+        var slGO = new GameObject("VolumeSlider");
+        slGO.transform.SetParent(row.transform, false);
+        var slRT = slGO.AddComponent<RectTransform>();
+        slRT.anchorMin = new Vector2(0.39f, 0.20f);
+        slRT.anchorMax = new Vector2(0.88f, 0.80f);
+        slRT.offsetMin = slRT.offsetMax = Vector2.zero;
+        var sl = slGO.AddComponent<Slider>();
+        sl.minValue = 0f; sl.maxValue = 1f; sl.value = 0.7f;
+        sl.direction = Slider.Direction.LeftToRight;
+
+        var bgGO  = Child("Background", slGO.transform, Vector2.zero, Vector2.one);
+        bgGO.AddComponent<Image>().color = Passive;
+
+        var faGO  = Child("Fill Area", slGO.transform,
+            new Vector2(0f, 0.25f), new Vector2(1f, 0.75f));
+        faGO.GetComponent<RectTransform>().offsetMin = new Vector2(4, 0);
+        faGO.GetComponent<RectTransform>().offsetMax = new Vector2(-4, 0);
+        var fillGO = Child("Fill", faGO.transform, Vector2.zero, Vector2.one);
+        fillGO.AddComponent<Image>().color = GuitarCyan;
+
+        var hsGO   = Child("Handle Slide Area", slGO.transform, Vector2.zero, Vector2.one);
+        var hGO    = new GameObject("Handle");
+        hGO.transform.SetParent(hsGO.transform, false);
+        var hRT    = hGO.AddComponent<RectTransform>();
+        hRT.anchorMin = new Vector2(0.7f, 0f);
+        hRT.anchorMax = new Vector2(0.7f, 1f);
+        hRT.sizeDelta = new Vector2(16f, 0f);
+        var hImg   = hGO.AddComponent<Image>();
+        hImg.color = Color.white;
+
+        sl.fillRect     = fillGO.GetComponent<RectTransform>();
+        sl.handleRect   = hGO.GetComponent<RectTransform>();
+        sl.targetGraphic = hImg;
+
+        Txt(row, "VolumeValueText", "70%", 22, TextGray,
+            Anchor.Right, 0.88f, 0.98f, 0.10f, 0.90f);
+        Panel("Sep", row.transform, Hex("#FFFFFF08"), 0f, 1f, 0f, 0.03f);
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
     // TOP BAR
-    // ─────────────────────────────────────────
-    private void BuildTopBar(Transform parent, bool showSettings, bool showBack)
+    // ═════════════════════════════════════════════════════════════════════════
+    private void TopBar(Transform parent, bool settings, bool back, bool dots)
     {
-        GameObject bar = CreatePanel("TopBar", parent, bgPanel,
-            new Vector2(0f, 0.91f), new Vector2(1f, 1f));
+        var bar = Panel("TopBar", parent, BgSurface, 0f, 1f, 0.91f, 1f);
 
-        CreateText(bar.transform, "MenuIcon", "☰", 38, guitarCyan,
-            TextAlignmentOptions.Center,
-            new Vector2(0.01f, 0.1f), new Vector2(0.06f, 0.9f), FontStyles.Normal);
+        Txt(bar, "MenuIcon", "MENU", 32, GuitarCyan, Anchor.Center,
+            0.01f, 0.06f, 0.10f, 0.90f);
 
-        CreateText(bar.transform, "Title", "VIBEBEAT CONSOLE", 30, textWhite,
-            TextAlignmentOptions.Left,
-            new Vector2(0.07f, 0.1f), new Vector2(0.40f, 0.9f), FontStyles.Bold);
+        // Logo: VIBE8EAT CONSOLE
+        Txt(bar, "LogoVIBE",    "VIBE",    26, TextWhite,   Anchor.Right,  0.07f, 0.175f, 0.15f, 0.85f, bold: true);
+        Txt(bar, "Logo8",       "8",       26, GuitarCyan,  Anchor.Center, 0.172f,0.210f, 0.15f, 0.85f, bold: true);
+        Txt(bar, "LogoEAT",     "EAT",     26, TextWhite,   Anchor.Left,   0.207f,0.275f, 0.15f, 0.85f, bold: true);
+        Txt(bar, "LogoCONSOLE", "CONSOLE", 26, GuitarCyan,  Anchor.Left,   0.282f,0.455f, 0.15f, 0.85f, bold: true);
 
-        CreateText(bar.transform, "ModeDots", "● GUITAR   ● PIANO   ● DRUM", 22, textGray,
-            TextAlignmentOptions.Right,
-            new Vector2(0.42f, 0.1f), new Vector2(0.82f, 0.9f), FontStyles.Normal);
-
-        if (showSettings)
+        if (dots)
         {
-            Button settingsBtn = CreatePanel("SettingsButton", bar.transform, passiveGray,
-                new Vector2(0.85f, 0.15f), new Vector2(0.97f, 0.85f)).AddComponent<Button>();
-            settingsBtn.transition = Selectable.Transition.None;
-            CreateText(settingsBtn.transform, "Label", "AYARLAR", 20, textGray,
-                TextAlignmentOptions.Center, Vector2.zero, Vector2.one, FontStyles.Normal);
-            settingsBtn.onClick.AddListener(screenManager.ShowSettings);
+            Txt(bar, "GDot",   "*", 14, GuitarCyan,  Anchor.Center, 0.50f, 0.53f, 0.20f, 0.80f);
+            Txt(bar, "GLabel", "GUITAR", 14, TextGray,Anchor.Left,  0.53f, 0.61f, 0.20f, 0.80f);
+            Txt(bar, "PDot",   "*", 14, PianoOrange, Anchor.Center, 0.62f, 0.65f, 0.20f, 0.80f);
+            Txt(bar, "PLabel", "PIANO",  14, TextGray,Anchor.Left,  0.65f, 0.73f, 0.20f, 0.80f);
+            Txt(bar, "DDot",   "*", 14, DrumMagenta, Anchor.Center, 0.74f, 0.77f, 0.20f, 0.80f);
+            Txt(bar, "DLabel", "DRUM",   14, TextGray,Anchor.Left,  0.77f, 0.84f, 0.20f, 0.80f);
         }
 
-        if (showBack)
+        if (settings)
         {
-            Button backBtn = CreatePanel("BackButton", bar.transform, passiveGray,
-                new Vector2(0.85f, 0.15f), new Vector2(0.97f, 0.85f)).AddComponent<Button>();
-            backBtn.transition = Selectable.Transition.None;
-            CreateText(backBtn.transform, "Label", "←", 28, guitarCyan,
-                TextAlignmentOptions.Center, Vector2.zero, Vector2.one, FontStyles.Normal);
-            backBtn.onClick.AddListener(screenManager.ShowMainConsole);
+            var sg = Panel("SettingsButton", bar.transform, Passive, 0.90f, 0.975f, 0.10f, 0.90f);
+            var sb = sg.AddComponent<Button>();
+            sb.transition = Selectable.Transition.None;
+            Txt(sg, "Label", "SET", 24, TextGray, Anchor.Center, 0f, 1f, 0f, 1f);
+            sb.onClick.AddListener(sm.ShowSettings);
+            Panel("StatusDot", bar.transform, Hex("#00FF88"), 0.978f, 0.997f, 0.45f, 0.75f);
+        }
+
+        if (back)
+        {
+            var bg = Panel("BackButton", bar.transform, Passive, 0.90f, 0.975f, 0.10f, 0.90f);
+            var bb = bg.AddComponent<Button>();
+            bb.transition = Selectable.Transition.None;
+            Txt(bg, "Label", "<", 26, GuitarCyan, Anchor.Center, 0f, 1f, 0f, 1f);
+            bb.onClick.AddListener(sm.ShowMainConsole);
         }
     }
 
-    // ─────────────────────────────────────────
-    // ANİMASYONLU DALGA
-    // ─────────────────────────────────────────
-    private void BuildAnimatedWaveform(Transform parent, string name,
-        Vector2 aMin, Vector2 aMax)
+    // ═════════════════════════════════════════════════════════════════════════
+    // YARDIMCI — Sprite üretimi
+    // ═════════════════════════════════════════════════════════════════════════
+    private static Sprite CircleSprite(int size)
     {
-        GameObject container = CreateUIObject(name, parent);
-        RectTransform cr = container.GetComponent<RectTransform>();
-        cr.anchorMin = aMin; cr.anchorMax = aMax;
-        cr.offsetMin = Vector2.zero; cr.offsetMax = Vector2.zero;
-
-        WaveformAnimator anim = container.AddComponent<WaveformAnimator>();
-        anim.barCount = 32;
-
-        // Barları oluştur
-        GameObject[] bars = new GameObject[32];
-        for (int i = 0; i < 32; i++)
-        {
-            float x0 = i / 32f;
-            float x1 = x0 + 0.022f;
-            GameObject bar = CreateUIObject("Bar_" + i, container.transform);
-            RectTransform r = bar.GetComponent<RectTransform>();
-            r.anchorMin = new Vector2(x0, 0.05f);
-            r.anchorMax = new Vector2(x1, 0.95f);
-            r.offsetMin = Vector2.zero;
-            r.offsetMax = Vector2.zero;
-
-            Image img = bar.AddComponent<Image>();
-
-            // Spektrum rengi — cyan'dan magenta'ya
-            float t = i / 31f;
-            Color c = Color.Lerp(guitarCyan, drumMagenta, t);
-            img.color = new Color(c.r, c.g, c.b, 0.9f);
-
-            bars[i] = bar;
-        }
-
-        anim.bars = bars;
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        var px  = new Color[size * size];
+        float c = size * 0.5f, r = c - 1f;
+        for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float d = Mathf.Sqrt((x+.5f-c)*(x+.5f-c)+(y+.5f-c)*(y+.5f-c));
+                px[y*size+x] = new Color(1,1,1, Mathf.Clamp01((r-d)/1.5f));
+            }
+        tex.SetPixels(px); tex.Apply();
+        return Sprite.Create(tex, new Rect(0,0,size,size), new Vector2(.5f,.5f));
     }
 
-    // ─────────────────────────────────────────
-    // YARDIMCI — GLOW BUTTON
-    // ─────────────────────────────────────────
-    private Button CreateGlowButton(Transform parent, string name, string label,
-        Color glowColor, Vector2 aMin, Vector2 aMax)
+    private static Sprite RingSprite(int size, float outerR, float innerR)
     {
-        GameObject go = CreateUIObject(name, parent);
-        RectTransform r = go.GetComponent<RectTransform>();
-        r.anchorMin = aMin; r.anchorMax = aMax;
-        r.offsetMin = Vector2.zero; r.offsetMax = Vector2.zero;
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        var px  = new Color[size * size];
+        float c = size*.5f, o = outerR*c, i = innerR*c;
+        for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float d = Mathf.Sqrt((x+.5f-c)*(x+.5f-c)+(y+.5f-c)*(y+.5f-c));
+                float a = (d>=i && d<=o)
+                    ? Mathf.Min(Mathf.Clamp01((o-d)/1.8f), Mathf.Clamp01((d-i)/1.8f))
+                    : 0f;
+                px[y*size+x] = new Color(1,1,1,a);
+            }
+        tex.SetPixels(px); tex.Apply();
+        return Sprite.Create(tex, new Rect(0,0,size,size), new Vector2(.5f,.5f));
+    }
 
-        Image img = go.AddComponent<Image>();
-        img.color = new Color(0.02f, 0.05f, 0.09f, 0.95f);
+    // ═════════════════════════════════════════════════════════════════════════
+    // YARDIMCI — UI Primitifleri
+    // ═════════════════════════════════════════════════════════════════════════
+    private enum Anchor { Left, Center, Right }
 
-        Button btn = go.AddComponent<Button>();
+    private Button GlowBtn(Transform parent, string name, string label,
+        Color glow, float x0, float x1, float y0, float y1)
+    {
+        var go = R(name, parent, x0, x1, y0, y1);
+        go.AddComponent<Image>().color = BgSurface;
+        var btn = go.AddComponent<Button>();
         btn.transition = Selectable.Transition.None;
 
-        // Kenarlık — outline image ile simüle
-        GameObject border = CreateUIObject("Border", go.transform);
-        RectTransform br = border.GetComponent<RectTransform>();
-        br.anchorMin = Vector2.zero; br.anchorMax = Vector2.one;
-        br.offsetMin = Vector2.zero; br.offsetMax = Vector2.zero;
-        Image borderImg = border.AddComponent<Image>();
-        borderImg.color = new Color(glowColor.r, glowColor.g, glowColor.b, 0.6f);
-        borderImg.raycastTarget = false;
+        var border = Child("Border", go.transform, Vector2.zero, Vector2.one);
+        border.AddComponent<Image>().color =
+            new Color(glow.r, glow.g, glow.b, 0.65f);
+        border.GetComponent<Image>().raycastTarget = false;
 
-        // İç dolgu (border'ı örter, kenar kalır)
-        GameObject inner = CreateUIObject("Inner", go.transform);
-        RectTransform ir = inner.GetComponent<RectTransform>();
-        ir.anchorMin = Vector2.zero; ir.anchorMax = Vector2.one;
-        ir.offsetMin = new Vector2(1.5f, 1.5f);
-        ir.offsetMax = new Vector2(-1.5f, -1.5f);
-        Image innerImg = inner.AddComponent<Image>();
-        innerImg.color = new Color(0.02f, 0.05f, 0.09f, 1f);
-        innerImg.raycastTarget = false;
+        var inner = new GameObject("Inner");
+        inner.transform.SetParent(go.transform, false);
+        var iRT = inner.AddComponent<RectTransform>();
+        iRT.anchorMin = Vector2.zero; iRT.anchorMax = Vector2.one;
+        iRT.offsetMin = new Vector2(1.5f,1.5f);
+        iRT.offsetMax = new Vector2(-1.5f,-1.5f);
+        inner.AddComponent<Image>().color = BgSurface;
+        inner.GetComponent<Image>().raycastTarget = false;
 
-        TextMeshProUGUI lbl = CreateText(go.transform, "Label", label, 26, glowColor,
-            TextAlignmentOptions.Center, Vector2.zero, Vector2.one, FontStyles.Bold);
-        lbl.raycastTarget = false;
-
+        var t = Txt(go, "Label", label, 24, glow, Anchor.Center, 0f, 1f, 0f, 1f, bold: true);
+        t.raycastTarget = false;
         return btn;
     }
 
-    // ─────────────────────────────────────────
-    // YARDIMCI — SETTINGS ROW
-    // ─────────────────────────────────────────
-    private Button CreateSettingsRow(Transform parent, string name, string label,
-        Vector2 aMin, Vector2 aMax)
+    private GameObject RingLayer(Transform parent, string name,
+        Sprite spr, Color col, float x0, float x1, float y0, float y1)
     {
-        GameObject go = CreatePanel(name, parent, Hex("#0A1520"), aMin, aMax);
-        Button btn = go.AddComponent<Button>();
-        btn.transition = Selectable.Transition.None;
-
-        // Alt çizgi
-        GameObject line = CreatePanel("Line", go.transform, Hex("#FFFFFF11"),
-            new Vector2(0f, 0f), new Vector2(1f, 0.04f));
-
-        TextMeshProUGUI lbl = CreateText(go.transform, "Label", label, 24, textGray,
-            TextAlignmentOptions.Left,
-            new Vector2(0.03f, 0.1f), new Vector2(0.9f, 0.9f), FontStyles.Normal);
-
-        CreateText(go.transform, "Arrow", "›", 30, Hex("#334455"),
-            TextAlignmentOptions.Right,
-            new Vector2(0.9f, 0.1f), new Vector2(0.99f, 0.9f), FontStyles.Normal);
-
-        NeonRippleFeedback ripple = go.AddComponent<NeonRippleFeedback>();
-        ripple.rippleColor = guitarCyan;
-        ripple.expandRadius = 0.8f;
-
-        return btn;
-    }
-
-    // ─────────────────────────────────────────
-    // TEMEL HELPERS
-    // ─────────────────────────────────────────
-    private void DeleteOldCanvas()
-    {
-        GameObject old = GameObject.Find(CanvasName);
-        if (old != null) DestroyImmediate(old);
-    }
-
-    private void EnsureEventSystem()
-    {
-        if (FindFirstObjectByType<EventSystem>() != null) return;
-        GameObject es = new GameObject("EventSystem");
-        es.AddComponent<EventSystem>();
-        es.AddComponent<StandaloneInputModule>();
-    }
-
-    private GameObject CreateCanvas()
-    {
-        GameObject go = new GameObject(CanvasName);
-        Canvas canvas = go.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-
-        CanvasScaler scaler = go.AddComponent<CanvasScaler>();
-        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(2400f, 1080f);
-        scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-        scaler.matchWidthOrHeight = 0.5f;
-
-        go.AddComponent<GraphicRaycaster>();
+        var go = Child(name, parent, new Vector2(x0,y0), new Vector2(x1,y1));
+        var img = go.AddComponent<Image>();
+        img.sprite = spr; img.color = col; img.raycastTarget = false;
         return go;
     }
 
-    private GameObject CreateFullScreenPanel(string name, Transform parent, Color color)
+    private TextMeshProUGUI Txt(GameObject parent, string name, string text,
+        float size, Color col, Anchor align,
+        float x0, float x1, float y0, float y1, bool bold = false)
     {
-        GameObject go = CreateUIObject(name, parent);
-        RectTransform r = go.GetComponent<RectTransform>();
-        r.anchorMin = Vector2.zero; r.anchorMax = Vector2.one;
-        r.offsetMin = Vector2.zero; r.offsetMax = Vector2.zero;
-        go.AddComponent<Image>().color = color;
-        return go;
-    }
-
-    private GameObject CreatePanel(string name, Transform parent, Color color,
-        Vector2 aMin, Vector2 aMax)
-    {
-        GameObject go = CreateUIObject(name, parent);
-        RectTransform r = go.GetComponent<RectTransform>();
-        r.anchorMin = aMin; r.anchorMax = aMax;
-        r.offsetMin = Vector2.zero; r.offsetMax = Vector2.zero;
-        go.AddComponent<Image>().color = color;
-        return go;
-    }
-
-    private TextMeshProUGUI CreateText(Transform parent, string name, string text,
-        float fontSize, Color color, TextAlignmentOptions align,
-        Vector2 aMin, Vector2 aMax, FontStyles style)
-    {
-        GameObject go = CreateUIObject(name, parent);
-        RectTransform r = go.GetComponent<RectTransform>();
-        r.anchorMin = aMin; r.anchorMax = aMax;
-        r.offsetMin = Vector2.zero; r.offsetMax = Vector2.zero;
-        TextMeshProUGUI tmp = go.AddComponent<TextMeshProUGUI>();
-        tmp.text = text;
-        tmp.fontSize = fontSize;
-        tmp.color = color;
-        tmp.alignment = align;
-        tmp.fontStyle = style;
+        var go  = R(name, parent.transform, x0, x1, y0, y1);
+        var tmp = go.AddComponent<TextMeshProUGUI>();
+        tmp.text    = text; tmp.fontSize = size; tmp.color = col;
+        tmp.fontStyle = bold ? FontStyles.Bold : FontStyles.Normal;
+        tmp.alignment = align == Anchor.Left   ? TextAlignmentOptions.Left
+                      : align == Anchor.Right  ? TextAlignmentOptions.Right
+                      :                          TextAlignmentOptions.Center;
         tmp.raycastTarget = false;
         tmp.textWrappingMode = TextWrappingModes.Normal;
         return tmp;
     }
 
-    private GameObject CreateUIObject(string name, Transform parent)
+    private GameObject Panel(string name, Transform parent, Color col,
+        float x0, float x1, float y0, float y1)
     {
-        GameObject go = new GameObject(name);
-        go.transform.SetParent(parent, false);
-        go.AddComponent<RectTransform>();
+        var go = R(name, parent, x0, x1, y0, y1);
+        go.AddComponent<Image>().color = col;
         return go;
     }
 
-    private static Color Hex(string hex)
+    private GameObject EmptyRect(string name, Transform parent,
+        float x0, float x1, float y0, float y1)
+        => R(name, parent, x0, x1, y0, y1);
+
+    private GameObject FullScreen(string name, Transform parent, Color col)
     {
-        ColorUtility.TryParseHtmlString(hex, out Color c);
-        return c;
+        var go = R(name, parent, 0f, 1f, 0f, 1f);
+        go.AddComponent<Image>().color = col;
+        return go;
     }
 
-    // ─────────────────────────────────────────
-    // DAIRE RİPPLE — TÜM BUTONLARA OTOMATIK UYGULA
-    // ─────────────────────────────────────────
-    [ContextMenu("Apply Circle Ripple to All Buttons")]
-    public void ApplyCircleRippleToAllButtons()
+    private GameObject Child(string name, Transform parent, Vector2 aMin, Vector2 aMax)
     {
-        Canvas canvas = FindFirstObjectByType<Canvas>();
-        if (canvas == null)
-        {
-            Debug.LogError("❌ Canvas bulunamadı!");
-            return;
-        }
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin = aMin; rt.anchorMax = aMax;
+        rt.offsetMin = rt.offsetMax = Vector2.zero;
+        return go;
+    }
 
-        Button[] allButtons = canvas.GetComponentsInChildren<Button>();
-        int count = 0;
+    private GameObject R(string name, Transform parent,
+        float x0, float x1, float y0, float y1)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(x0, y0);
+        rt.anchorMax = new Vector2(x1, y1);
+        rt.offsetMin = rt.offsetMax = Vector2.zero;
+        return go;
+    }
 
-        foreach (Button btn in allButtons)
-        {
-            // Mevcut ripple componentlerini sil
-            NeonRippleFeedback oldRipple = btn.GetComponent<NeonRippleFeedback>();
-            if (oldRipple != null) DestroyImmediate(oldRipple);
+    // ═════════════════════════════════════════════════════════════════════════
+    // Canvas / EventSystem kurulum
+    // ═════════════════════════════════════════════════════════════════════════
+    private GameObject MakeCanvas()
+    {
+        var go = new GameObject(CanvasName);
+        var cv = go.AddComponent<Canvas>();
+        cv.renderMode = RenderMode.ScreenSpaceOverlay;
+        var cs = go.AddComponent<CanvasScaler>();
+        cs.uiScaleMode         = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        cs.referenceResolution = new Vector2(2400f, 1080f);
+        cs.screenMatchMode     = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+        cs.matchWidthOrHeight  = 0.5f;
+        go.AddComponent<GraphicRaycaster>();
+        return go;
+    }
 
-            EnhancedRippleEffect oldEnhanced = btn.GetComponent<EnhancedRippleEffect>();
-            if (oldEnhanced != null) DestroyImmediate(oldEnhanced);
+    private void EnsureEventSystem()
+    {
+        var es = FindFirstObjectByType<EventSystem>();
+        if (es != null) { PatchInputModule(es.gameObject); return; }
+        var g = new GameObject("EventSystem");
+        g.AddComponent<EventSystem>();
+        PatchInputModule(g);
+    }
 
-            WaveRippleEffect oldWave = btn.GetComponent<WaveRippleEffect>();
-            if (oldWave != null) DestroyImmediate(oldWave);
-
-            // Yeni dalga ripple efekti ekle
-            WaveRippleEffect waveRipple = btn.gameObject.AddComponent<WaveRippleEffect>();
-            
-            // Rengi butona göre ayarla
-            Color waveColor = GetWaveColorForButton(btn.name);
-            waveRipple.settings.colorPreset = WaveRippleEffect.ColorPreset.Custom;
-            waveRipple.settings.customColor = waveColor;
-            waveRipple.settings.expandRadius = 1.8f;
-            waveRipple.settings.duration = 0.6f;
-            waveRipple.settings.maxAlpha = 0.85f;
-            waveRipple.settings.waveCount = 3;
-            waveRipple.settings.waveDelay = 0.12f;
-            waveRipple.buttonPulseScale = 1.06f;
-
-            count++;
-        }
-
-        Debug.Log($"✅ {count} butona dalga ripple efekti uygulandı!");
-
-#if UNITY_EDITOR
-        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
-            UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+    private void PatchInputModule(GameObject g)
+    {
+#if ENABLE_INPUT_SYSTEM
+        if (!g.GetComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>())
+            g.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
+        var old = g.GetComponent<StandaloneInputModule>();
+        if (old) DestroyImmediate(old);
+#else
+        if (!g.GetComponent<StandaloneInputModule>())
+            g.AddComponent<StandaloneInputModule>();
 #endif
     }
 
-    /// <summary>
-    /// Butona göre uygun dalga rengini belirle
-    /// </summary>
-    private Color GetWaveColorForButton(string buttonName)
+    private static Color Hex(string h)
     {
-        if (buttonName.Contains("Guitar") || buttonName.Contains("guitar"))
-            return guitarCyan;
-        if (buttonName.Contains("Piano") || buttonName.Contains("piano"))
-            return pianoOrange;
-        if (buttonName.Contains("Drum") || buttonName.Contains("drum"))
-            return drumMagenta;
-        
-        // Varsayılan
-        return guitarCyan;
-    }
-
-    [ContextMenu("Apply Wave Ripple to All Buttons (Optimized)")]
-    public void ApplyWaveRippleOptimized()
-    {
-        Canvas canvas = FindFirstObjectByType<Canvas>();
-        if (canvas == null)
-        {
-            Debug.LogError("❌ Canvas bulunamadı!");
-            return;
-        }
-
-        Button[] allButtons = canvas.GetComponentsInChildren<Button>();
-        int count = 0;
-
-        foreach (Button btn in allButtons)
-        {
-            // Mevcut tüm ripple componentlerini temizle
-            foreach (var component in btn.GetComponents<MonoBehaviour>())
-            {
-                if (component is NeonRippleFeedback or EnhancedRippleEffect or WaveRippleEffect)
-                {
-                    DestroyImmediate(component);
-                }
-            }
-
-            // Dalga efekti ekle
-            WaveRippleEffect wave = btn.gameObject.AddComponent<WaveRippleEffect>();
-            
-            // Bağlamsal renkler
-            Color buttonColor = GetWaveColorForButton(btn.name);
-            
-            wave.settings.colorPreset = WaveRippleEffect.ColorPreset.Custom;
-            wave.settings.customColor = buttonColor;
-            wave.settings.expandRadius = 1.6f;
-            wave.settings.duration = 0.65f;
-            wave.settings.maxAlpha = 0.8f;
-            wave.settings.waveCount = 2; // Daha az CPU kullanımı
-            wave.settings.waveDelay = 0.15f;
-            wave.buttonPulseScale = 1.05f;
-            wave.buttonPulseDuration = 0.3f;
-
-            count++;
-        }
-
-        Debug.Log($"✅ {count} butona optimize dalga efekti uygulandı!");
-
-#if UNITY_EDITOR
-        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
-            UnityEngine.SceneManagement.SceneManager.GetActiveScene());
-#endif
-    }
-
-    [ContextMenu("Reset All Button Effects")]
-    public void ResetAllButtonEffects()
-    {
-        Canvas canvas = FindFirstObjectByType<Canvas>();
-        if (canvas == null)
-        {
-            Debug.LogWarning("⚠️ Canvas bulunamadı!");
-            return;
-        }
-
-        Button[] allButtons = canvas.GetComponentsInChildren<Button>();
-        
-        foreach (Button btn in allButtons)
-        {
-            // Tüm ripple bileşenlerini kaldır
-            foreach (var component in btn.GetComponents<MonoBehaviour>())
-            {
-                if (component is NeonRippleFeedback or EnhancedRippleEffect or WaveRippleEffect)
-                {
-                    DestroyImmediate(component);
-                }
-            }
-        }
-
-        Debug.Log($"✅ {allButtons.Length} butondan ripple efektleri kaldırıldı!");
-
-#if UNITY_EDITOR
-        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
-            UnityEngine.SceneManagement.SceneManager.GetActiveScene());
-#endif
+        ColorUtility.TryParseHtmlString(h, out var c); return c;
     }
 }
