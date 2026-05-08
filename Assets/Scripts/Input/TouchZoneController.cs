@@ -111,19 +111,19 @@ public class TouchZoneController : MonoBehaviour
                 isGuitarMuted = true;
                 debugIsGuitarMuted = true;
                 OnGuitarMuteChanged?.Invoke(true);
-                Debug.Log("[TOUCH] 🎸 Gitar MUTE açıldı");
+                Debug.Log("[TOUCH] [GITAR] Gitar MUTE açıldı");
                 break;
 
             case TouchZoneType.PianoKeys:
                 int keyIndex = GetPianoKeyIndex(normalizedPos);
                 debugPianoKeyIndex = keyIndex;
                 OnPianoKeyPressed?.Invoke(keyIndex);
-                Debug.Log($"[TOUCH] 🎹 Piyano tuş: {keyIndex}");
+                Debug.Log($"[TOUCH] [PIANO] Piyano tuş: {keyIndex}");
                 break;
 
             case TouchZoneType.DrumPad:
                 OnDrumHit?.Invoke();
-                Debug.Log("[TOUCH] 🥁 Davul vuruldu!");
+                Debug.Log("[TOUCH] [DAVUL] Davul vuruldu!");
                 break;
         }
     }
@@ -143,7 +143,7 @@ public class TouchZoneController : MonoBehaviour
             isGuitarMuted = false;
             debugIsGuitarMuted = false;
             OnGuitarMuteChanged?.Invoke(false);
-            Debug.Log("[TOUCH] 🎸 Gitar MUTE kapandı");
+            Debug.Log("[TOUCH] [GITAR] Gitar MUTE kapandı");
         }
 
         debugActiveZone = TouchZoneType.None;

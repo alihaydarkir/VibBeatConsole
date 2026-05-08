@@ -43,13 +43,13 @@ public class HapticFeedbackManager : MonoBehaviour
                     "getSystemService", "vibrator"
                 );
                 isAndroidReady = vibrator != null;
-                Debug.Log($"[HAPTIC] ✅ Vibrator hazır: {isAndroidReady}");
+                Debug.Log($"[HAPTIC] [OK] Vibrator hazır: {isAndroidReady}");
             }
         }
         catch (System.Exception ex)
         {
             isAndroidReady = false;
-            Debug.LogError($"[HAPTIC] ❌ Hata: {ex.Message}");
+            Debug.LogError($"[HAPTIC] [HATA] Hata: {ex.Message}");
         }
     }
 
@@ -58,7 +58,7 @@ public class HapticFeedbackManager : MonoBehaviour
     {
         if (!hapticEnabled) return;
         Vibrate(drumKickDurationMs, drumKickAmplitude);
-        Debug.Log("[HAPTIC] 🥁 Drum kick titreşimi!");
+        Debug.Log("[HAPTIC] [DAVUL] Drum kick titreşimi!");
     }
 
     // --- Piyano Tuş (Hafif & Çok Kısa) ---
@@ -66,7 +66,7 @@ public class HapticFeedbackManager : MonoBehaviour
     {
         if (!hapticEnabled) return;
         Vibrate(pianoKeyDurationMs, pianoKeyAmplitude);
-        Debug.Log("[HAPTIC] 🎹 Piano key titreşimi!");
+        Debug.Log("[HAPTIC] [PIANO] Piano key titreşimi!");
     }
 
     // --- Gitar Mute (Çok Hafif) ---
@@ -74,7 +74,7 @@ public class HapticFeedbackManager : MonoBehaviour
     {
         if (!hapticEnabled) return;
         Vibrate(guitarMuteDurationMs, guitarMuteAmplitude);
-        Debug.Log("[HAPTIC] 🎸 Guitar mute titreşimi!");
+        Debug.Log("[HAPTIC] [GITAR] Guitar mute titreşimi!");
     }
 
     // --- Ana Vibrate Fonksiyonu ---
@@ -105,11 +105,11 @@ public class HapticFeedbackManager : MonoBehaviour
         }
         catch (System.Exception ex)
         {
-            Debug.LogError($"[HAPTIC] ❌ Vibrate hatası: {ex.Message}");
+            Debug.LogError($"[HAPTIC] [HATA] Vibrate hatası: {ex.Message}");
         }
 #else
         // Editor simülasyon logu
-        Debug.Log($"[HAPTIC] 📳 Simüle: {durationMs}ms amplitude:{amplitude}");
+        Debug.Log($"[HAPTIC] [TITRESIM] Simüle: {durationMs}ms amplitude:{amplitude}");
 #endif
     }
 

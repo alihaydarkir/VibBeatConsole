@@ -67,13 +67,13 @@ public class SensorController : MonoBehaviour
 
             sensorReady       = true;
             debugSensorStatus = "Android sensör aktif";
-            Debug.Log("[SENSOR] ✅ AndroidLightSensorBridge başlatıldı.");
+            Debug.Log("[SENSOR] [OK] AndroidLightSensorBridge başlatıldı.");
         }
         catch (System.Exception ex)
         {
             sensorReady       = false;
             debugSensorStatus = $"HATA: {ex.Message}";
-            Debug.LogError($"[SENSOR] ❌ Bridge başlatılamadı: {ex.Message}");
+            Debug.LogError($"[SENSOR] [HATA] Bridge başlatılamadı: {ex.Message}");
         }
     }
 
@@ -146,7 +146,7 @@ public class SensorController : MonoBehaviour
         if (status == "ERROR:NO_LIGHT_SENSOR")
         {
             sensorReady = false;
-            Debug.LogError("[SENSOR] ❌ Cihazda ışık sensörü bulunamadı!");
+            Debug.LogError("[SENSOR] [HATA] Cihazda ışık sensörü bulunamadı!");
         }
 
         OnSensorStatus?.Invoke(status);

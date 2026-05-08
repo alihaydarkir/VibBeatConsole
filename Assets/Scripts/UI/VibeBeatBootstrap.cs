@@ -52,9 +52,9 @@ public class VibeBeatBootstrap : MonoBehaviour
             masterController = FindFirstObjectByType<VibBeatMasterController>();
 
         if (masterController == null)
-            Debug.LogError("[BOOTSTRAP] ❌ VibBeatMasterController sahnede bulunamadı! Inspector'dan ata.");
+            Debug.LogError("[BOOTSTRAP] [HATA] VibBeatMasterController sahnede bulunamadı! Inspector'dan ata.");
         else
-            Debug.Log("[BOOTSTRAP] ✅ MasterController bulundu.");
+            Debug.Log("[BOOTSTRAP] [OK] MasterController bulundu.");
 
         Transform t      = transform;
         splashScreen     = FindChild(t, "SplashScreen");
@@ -75,7 +75,7 @@ public class VibeBeatBootstrap : MonoBehaviour
         ActivateAll(false);
 
         ShowSplash();
-        Debug.Log("[BOOTSTRAP] ✅ Başlatma tamamlandı.");
+        Debug.Log("[BOOTSTRAP] [OK] Başlatma tamamlandı.");
     }
 
     private void LogScreenStatus()
@@ -147,7 +147,7 @@ public class VibeBeatBootstrap : MonoBehaviour
             sensorValueText = guitar.Find("SensorValueText")?.GetComponent<TextMeshProUGUI>();
             BindBtn(guitar, "MuteButton",     ToggleGuitarMute);
             BindBtn(guitar, "CalibrateButton",ShowCalibration);
-            Debug.Log("[BOOTSTRAP] ✅ GuitarPanel bağlandı.");
+            Debug.Log("[BOOTSTRAP] [OK] GuitarPanel bağlandı.");
         }
         else Debug.LogWarning("[BOOTSTRAP] GuitarPanel bulunamadı!");
 
@@ -171,7 +171,7 @@ public class VibeBeatBootstrap : MonoBehaviour
                     key.onClick.RemoveAllListeners();
                     key.onClick.AddListener(() =>
                     {
-                        Debug.Log($"[BOOTSTRAP] 🎹 Piyano tuş basıldı: {idx}");
+                        Debug.Log($"[BOOTSTRAP] [PIANO] Piyano tuş basıldı: {idx}");
                         if (masterController != null)
                             masterController.HandlePianoKeyFromUI(idx);
                         else
@@ -181,7 +181,7 @@ public class VibeBeatBootstrap : MonoBehaviour
                 }
                 else Debug.LogWarning($"[BOOTSTRAP] {name} butonu bulunamadı!");
             }
-            Debug.Log($"[BOOTSTRAP] ✅ Piano: {bound}/4 tuş bağlandı.");
+            Debug.Log($"[BOOTSTRAP] [OK] Piano: {bound}/4 tuş bağlandı.");
         }
         else Debug.LogWarning("[BOOTSTRAP] PianoPanel bulunamadı!");
 
@@ -195,13 +195,13 @@ public class VibeBeatBootstrap : MonoBehaviour
                 padBtn.onClick.RemoveAllListeners();
                 padBtn.onClick.AddListener(() =>
                 {
-                    Debug.Log("[BOOTSTRAP] 🥁 Davul basıldı!");
+                    Debug.Log("[BOOTSTRAP] [DAVUL] Davul basıldı!");
                     if (masterController != null)
                         masterController.HandleDrumHitFromUI();
                     else
                         Debug.LogError("[BOOTSTRAP] masterController NULL — davul çalınamadı!");
                 });
-                Debug.Log("[BOOTSTRAP] ✅ DrumPad bağlandı.");
+                Debug.Log("[BOOTSTRAP] [OK] DrumPad bağlandı.");
             }
             else Debug.LogWarning("[BOOTSTRAP] DrumPad butonu bulunamadı!");
         }
@@ -218,7 +218,7 @@ public class VibeBeatBootstrap : MonoBehaviour
         Transform sp = settingsScreen.transform.Find("SettingsPanel");
         if (sp == null) { Debug.LogWarning("[BOOTSTRAP] SettingsPanel bulunamadı!"); return; }
 
-        Debug.Log("[BOOTSTRAP] ✅ SettingsPanel bulundu, satırlar bağlanıyor...");
+        Debug.Log("[BOOTSTRAP] [OK] SettingsPanel bulundu, satırlar bağlanıyor...");
 
         // Tekrar kalibre
         BindBtn(sp, "RecalibrateRow", ShowCalibration);
@@ -244,7 +244,7 @@ public class VibeBeatBootstrap : MonoBehaviour
                     toggleTrack.color = Hex(hapticEnabled ? "#00F0FF" : "#1A2535");
                 AccessibilityManager.Instance?.Speak(hapticEnabled ? "Titreşim açıldı" : "Titreşim kapatıldı");
             });
-            Debug.Log("[BOOTSTRAP] ✅ HapticRow bağlandı.");
+            Debug.Log("[BOOTSTRAP] [OK] HapticRow bağlandı.");
         }
         else Debug.LogWarning("[BOOTSTRAP] HapticRow butonu bulunamadı!");
 
@@ -270,7 +270,7 @@ public class VibeBeatBootstrap : MonoBehaviour
                 else Debug.LogWarning($"[BOOTSTRAP] {effNames[i]} bulunamadı!");
             }
             UpdateEffectVisuals(effectRow, new[]{"EffectBtn_Low","EffectBtn_Mid","EffectBtn_High"});
-            Debug.Log("[BOOTSTRAP] ✅ EffectIntensityRow bağlandı.");
+            Debug.Log("[BOOTSTRAP] [OK] EffectIntensityRow bağlandı.");
         }
         else Debug.LogWarning("[BOOTSTRAP] EffectIntensityRow bulunamadı!");
 
@@ -291,7 +291,7 @@ public class VibeBeatBootstrap : MonoBehaviour
                     if (volTxt != null) volTxt.text = Mathf.RoundToInt(val * 100f) + "%";
                     Debug.Log($"[BOOTSTRAP] Ses: {Mathf.RoundToInt(val*100f)}%");
                 });
-                Debug.Log("[BOOTSTRAP] ✅ VolumeSlider bağlandı.");
+                Debug.Log("[BOOTSTRAP] [OK] VolumeSlider bağlandı.");
             }
             else Debug.LogWarning("[BOOTSTRAP] VolumeSlider bulunamadı!");
         }
@@ -379,14 +379,14 @@ public class VibeBeatBootstrap : MonoBehaviour
             yield return null;
         }
 
-        SetText(calStepText,   "Kalibrasyon tamamlandı ✅");
+        SetText(calStepText,   "Kalibrasyon tamamlandı [OK]");
         SetText(calPercentText,"100%");
         SetText(calStatusText, "Durum: Hazır");
         if (progressRing) progressRing.fillAmount = 1f;
 
         masterController?.StartCalibration();
         AccessibilityManager.Instance?.AnnounceCalibrationComplete();
-        Debug.Log("[BOOTSTRAP] ✅ Kalibrasyon UI tamamlandı.");
+        Debug.Log("[BOOTSTRAP] [OK] Kalibrasyon UI tamamlandı.");
     }
 
     // ─────────────────────────────────────────
@@ -395,7 +395,7 @@ public class VibeBeatBootstrap : MonoBehaviour
     private void ToggleGuitarMute()
     {
         guitarMuted = !guitarMuted;
-        Debug.Log($"[BOOTSTRAP] 🎸 Guitar mute: {guitarMuted}");
+        Debug.Log($"[BOOTSTRAP] [GITAR] Guitar mute: {guitarMuted}");
         masterController?.SetGuitarMuteFromUI(guitarMuted);
         AccessibilityManager.Instance?.Speak(guitarMuted ? "Gitar susturuldu" : "Gitar açıldı");
     }
@@ -434,7 +434,7 @@ public class VibeBeatBootstrap : MonoBehaviour
         if (btn == null) { Debug.LogWarning($"[BOOTSTRAP] '{childName}' üzerinde Button component yok!"); return; }
         btn.onClick.RemoveAllListeners();
         btn.onClick.AddListener(action);
-        Debug.Log($"[BOOTSTRAP] ✅ '{childName}' butonu bağlandı.");
+        Debug.Log($"[BOOTSTRAP] [OK] '{childName}' butonu bağlandı.");
     }
 
     private void UpdateEffectVisuals(Transform effectRow, string[] names)

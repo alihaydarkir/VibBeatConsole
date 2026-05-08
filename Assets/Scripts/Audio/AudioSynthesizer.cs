@@ -62,7 +62,7 @@ public class AudioSynthesizer : MonoBehaviour
         drumSource.loop = false;
         drumSource.volume = 1f;
 
-        Debug.Log("[AUDIO] ✅ AudioSources hazır!");
+        Debug.Log("[AUDIO] [OK] AudioSources hazır!");
     }
 
     private void Update()
@@ -98,12 +98,12 @@ public class AudioSynthesizer : MonoBehaviour
         if (muted)
         {
             guitarSource.volume = 0f;
-            Debug.Log("[AUDIO] 🎸 Gitar MUTE");
+            Debug.Log("[AUDIO] [GITAR] Gitar MUTE");
         }
         else
         {
             guitarSource.volume = 0.7f;
-            Debug.Log("[AUDIO] 🎸 Gitar AÇIK");
+            Debug.Log("[AUDIO] [GITAR] Gitar AÇIK");
         }
     }
 
@@ -112,7 +112,7 @@ public class AudioSynthesizer : MonoBehaviour
     {
         if (pianoNotes == null || pianoNotes.Length == 0)
         {
-            Debug.LogWarning("[AUDIO] ⚠️ Piano clip yok!");
+            Debug.LogWarning("[AUDIO] [UYARI] Piano clip yok!");
             return;
         }
 
@@ -120,13 +120,13 @@ public class AudioSynthesizer : MonoBehaviour
 
         if (pianoNotes[keyIndex] == null)
         {
-            Debug.LogWarning($"[AUDIO] ⚠️ Piano clip[{keyIndex}] atanmamış!");
+            Debug.LogWarning($"[AUDIO] [UYARI] Piano clip[{keyIndex}] atanmamış!");
             return;
         }
 
         pianoSource.pitch = pianoNotePitches[keyIndex];
         pianoSource.PlayOneShot(pianoNotes[keyIndex], 0.8f);
-        Debug.Log($"[AUDIO] 🎹 Nota çalındı: {keyIndex} (pitch:{pianoNotePitches[keyIndex]})");
+        Debug.Log($"[AUDIO] [PIANO] Nota çalındı: {keyIndex} (pitch:{pianoNotePitches[keyIndex]})");
     }
 
     // --- Davul Kick ---
@@ -134,12 +134,12 @@ public class AudioSynthesizer : MonoBehaviour
     {
         if (drumKick == null)
         {
-            Debug.LogWarning("[AUDIO] ⚠️ Drum clip yok!");
+            Debug.LogWarning("[AUDIO] [UYARI] Drum clip yok!");
             return;
         }
 
         drumSource.PlayOneShot(drumKick, 1f);
-        Debug.Log("[AUDIO] 🥁 Kick!");
+        Debug.Log("[AUDIO] [DAVUL] Kick!");
     }
 
     // --- Getters ---

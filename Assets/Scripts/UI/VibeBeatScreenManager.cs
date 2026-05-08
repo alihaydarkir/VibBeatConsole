@@ -28,7 +28,7 @@ public class VibeBeatScreenManager : MonoBehaviour
         settingsScreen    = settings;
         initialized       = true;
 
-        Debug.Log($"[SCREEN_MGR] ✅ Init tamamlandı. " +
+        Debug.Log($"[SCREEN_MGR] [OK] Init tamamlandı. " +
             $"Splash:{splash != null} Main:{main != null} Settings:{settings != null}");
     }
 
@@ -95,7 +95,7 @@ public class VibeBeatScreenManager : MonoBehaviour
     private bool CheckInit()
     {
         if (!initialized)
-            Debug.LogError("[SCREEN_MGR] ❌ Init() henüz çağrılmadı! Bootstrap bağlantısı eksik.");
+            Debug.LogError("[SCREEN_MGR] [HATA] Init() henüz çağrılmadı! Bootstrap bağlantısı eksik.");
         return initialized;
     }
 }

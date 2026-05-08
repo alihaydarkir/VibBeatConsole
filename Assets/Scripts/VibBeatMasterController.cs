@@ -49,9 +49,9 @@ public class VibBeatMasterController : MonoBehaviour
     {
         T result = FindFirstObjectByType<T>();
         if (result == null)
-            Debug.LogWarning($"[MASTER] ⚠️ {label} sahnede bulunamadı — bu sistem devre dışı kalacak.");
+            Debug.LogWarning($"[MASTER] [UYARI] {label} sahnede bulunamadı — bu sistem devre dışı kalacak.");
         else
-            Debug.Log($"[MASTER] ✅ {label} bulundu: {result.gameObject.name}");
+            Debug.Log($"[MASTER] [OK] {label} bulundu: {result.gameObject.name}");
         return result;
     }
 
@@ -62,7 +62,7 @@ public class VibBeatMasterController : MonoBehaviour
     {
         SubscribeEvents();
         isRunning = true;
-        Debug.Log("[MASTER] ✅ VibBeat başlatıldı ve çalışıyor.");
+        Debug.Log("[MASTER] [OK] VibBeat başlatıldı ve çalışıyor.");
     }
 
     private void SubscribeEvents()
@@ -72,7 +72,7 @@ public class VibBeatMasterController : MonoBehaviour
             touchZoneController.OnGuitarMuteChanged += HandleGuitarMuteChanged;
             touchZoneController.OnPianoKeyPressed   += HandlePianoKeyPressed;
             touchZoneController.OnDrumHit           += HandleDrumHit;
-            Debug.Log("[MASTER] ✅ TouchZone event'leri bağlandı.");
+            Debug.Log("[MASTER] [OK] TouchZone event'leri bağlandı.");
         }
 
         if (calibrationManager != null)
@@ -121,7 +121,7 @@ public class VibBeatMasterController : MonoBehaviour
         audioSynthesizer?.SetGuitarMuted(isMuted);
         visualController?.SetGuitarMuteVisual(isMuted);
         hapticManager?.PlayGuitarMuteFeedback();
-        Debug.Log($"[MASTER] 🎸 Gitar mute: {isMuted}");
+        Debug.Log($"[MASTER] [GITAR] Gitar mute: {isMuted}");
     }
 
     private void HandlePianoKeyPressed(int keyIndex)
@@ -130,7 +130,7 @@ public class VibBeatMasterController : MonoBehaviour
         visualController?.PlayPianoKeyVisualization(keyIndex);
         hapticManager?.PlayPianoKeyFeedback();
         AccessibilityManager.Instance?.AnnouncePianoZone(keyIndex);
-        Debug.Log($"[MASTER] 🎹 Piyano: {keyIndex}");
+        Debug.Log($"[MASTER] [PIANO] Piyano: {keyIndex}");
     }
 
     private void HandleDrumHit()
@@ -139,18 +139,18 @@ public class VibBeatMasterController : MonoBehaviour
         visualController?.PlayDrumImpactVisualization();
         hapticManager?.PlayDrumKickFeedback();
         AccessibilityManager.Instance?.AnnounceDrumZone();
-        Debug.Log("[MASTER] 🥁 Davul!");
+        Debug.Log("[MASTER] [DAVUL] Davul!");
     }
 
     private void HandleCalibrationMessage(string message)
     {
-        Debug.Log($"[MASTER] 📢 Kalibrasyon: {message}");
+        Debug.Log($"[MASTER]  Kalibrasyon: {message}");
         AccessibilityManager.Instance?.AnnounceCalibrationStep(message);
     }
 
     private void HandleCalibrationComplete()
     {
-        Debug.Log("[MASTER] ✅ Kalibrasyon tamamlandı.");
+        Debug.Log("[MASTER] [OK] Kalibrasyon tamamlandı.");
         AccessibilityManager.Instance?.AnnounceCalibrationComplete();
     }
 
@@ -159,7 +159,7 @@ public class VibBeatMasterController : MonoBehaviour
         debugSensorStatus = status;
         if (status.StartsWith("ERROR"))
         {
-            Debug.LogError($"[MASTER] ❌ Sensör hatası: {status}");
+            Debug.LogError($"[MASTER] [HATA] Sensör hatası: {status}");
             AccessibilityManager.Instance?.Speak("Sensör hatası. Lütfen uygulamayı yeniden başlatın.");
         }
     }
@@ -171,13 +171,13 @@ public class VibBeatMasterController : MonoBehaviour
 
     public void HandlePianoKeyFromUI(int keyIndex)
     {
-        Debug.Log($"[MASTER] 🎹 UI'dan piyano: {keyIndex}");
+        Debug.Log($"[MASTER] [PIANO] UI'dan piyano: {keyIndex}");
         HandlePianoKeyPressed(keyIndex);
     }
 
     public void HandleDrumHitFromUI()
     {
-        Debug.Log("[MASTER] 🥁 UI'dan davul!");
+        Debug.Log("[MASTER] [DAVUL] UI'dan davul!");
         HandleDrumHit();
     }
 
@@ -187,20 +187,20 @@ public class VibBeatMasterController : MonoBehaviour
         visualController?.SetGuitarMuteVisual(muted);
         hapticManager?.PlayGuitarMuteFeedback();
         debugGuitarMuted = muted;
-        Debug.Log($"[MASTER] 🎸 UI'dan mute: {muted}");
+        Debug.Log($"[MASTER] [GITAR] UI'dan mute: {muted}");
     }
 
     public void SetMasterVolume(float volume)
     {
         AudioListener.volume = Mathf.Clamp01(volume);
-        Debug.Log($"[MASTER] 🔊 Volume: {Mathf.RoundToInt(volume * 100f)}%");
+        Debug.Log($"[MASTER] [SES] Volume: {Mathf.RoundToInt(volume * 100f)}%");
     }
 
     public void StartCalibration()
     {
         if (calibrationManager == null)
         {
-            Debug.LogError("[MASTER] ❌ CalibrationManager yok — kalibrasyon başlatılamadı!");
+            Debug.LogError("[MASTER] [HATA] CalibrationManager yok — kalibrasyon başlatılamadı!");
             return;
         }
         calibrationManager.StartCalibration();
@@ -209,7 +209,7 @@ public class VibBeatMasterController : MonoBehaviour
     public void SetHapticEnabled(bool enabled)
     {
         hapticManager?.SetHapticEnabled(enabled);
-        Debug.Log($"[MASTER] 📳 Haptic: {enabled}");
+        Debug.Log($"[MASTER] [TITRESIM] Haptic: {enabled}");
     }
 
     // ─────────────────────────────────────────

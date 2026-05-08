@@ -28,9 +28,9 @@ public class CalibrationManager : MonoBehaviour
     {
         sensorController = FindFirstObjectByType<SensorController>();
         if (sensorController == null)
-            Debug.LogError("[CALIBRATION] ❌ SensorController sahnede bulunamadı!");
+            Debug.LogError("[CALIBRATION] [HATA] SensorController sahnede bulunamadı!");
         else
-            Debug.Log("[CALIBRATION] ✅ SensorController bulundu.");
+            Debug.Log("[CALIBRATION] [OK] SensorController bulundu.");
     }
 
     private void Start()
@@ -46,46 +46,66 @@ public class CalibrationManager : MonoBehaviour
 
     private IEnumerator CalibrationRoutine()
     {
-        // ADIM 1: Minimum Lux
-        OnCalibrationMessage?.Invoke("🌑 Elini kapat ve bekle...");
-        yield return new WaitForSeconds(2f);
+        // Editor'da gerçek sensör yok — simüle değerler kullan
+        bool isEditor = Application.platform != RuntimePlatform.Android;
 
-        float minSum = 0f;
-        int samples = 60;
-        for (int i = 0; i < samples; i++)
+        // ADIM 1: Minimum Lux (el kapalı)
+        OnCalibrationMessage?.Invoke("Elini kapat ve bekle...");
+        yield return new WaitForSeconds(isEditor ? 0.5f : 2f);
+
+        if (isEditor)
         {
-            minSum += sensorController.GetCurrentLux();
-            yield return null;
+            // Editor: mouse solda = kapalı = düşük lux simülasyonu
+            minLux = 0f;
         }
-        minLux = minSum / samples;
+        else
+        {
+            float minSum = 0f;
+            int samples = 60;
+            for (int i = 0; i < samples; i++)
+            {
+                minSum += sensorController.GetCurrentLux();
+                yield return null;
+            }
+            minLux = minSum / samples;
+        }
         debugMinLux = minLux;
-        OnCalibrationMessage?.Invoke($"✅ Min kaydedildi: {minLux:F1} lux");
+        OnCalibrationMessage?.Invoke($"Min kaydedildi: {minLux:F1} lux");
 
-        yield return new WaitForSeconds(1f);
+        yield return new WaitForSeconds(isEditor ? 0.3f : 1f);
 
-        // ADIM 2: Maximum Lux
-        OnCalibrationMessage?.Invoke("☀️ Elini aç, 15cm yukarı kaldır...");
-        yield return new WaitForSeconds(2f);
+        // ADIM 2: Maximum Lux (el açık)
+        OnCalibrationMessage?.Invoke("Elini ac, 15cm yukari kaldir...");
+        yield return new WaitForSeconds(isEditor ? 0.5f : 2f);
 
-        float maxSum = 0f;
-        for (int i = 0; i < samples; i++)
+        if (isEditor)
         {
-            maxSum += sensorController.GetCurrentLux();
-            yield return null;
+            // Editor: simüle max = 50000 lux (tam açık)
+            maxLux = 50000f;
         }
-        maxLux = maxSum / samples;
+        else
+        {
+            float maxSum = 0f;
+            int samples = 60;
+            for (int i = 0; i < samples; i++)
+            {
+                maxSum += sensorController.GetCurrentLux();
+                yield return null;
+            }
+            maxLux = maxSum / samples;
+        }
         debugMaxLux = maxLux;
-        OnCalibrationMessage?.Invoke($"✅ Max kaydedildi: {maxLux:F1} lux");
+        OnCalibrationMessage?.Invoke($"Max kaydedildi: {maxLux:F1} lux");
 
-        yield return new WaitForSeconds(1f);
+        yield return new WaitForSeconds(isEditor ? 0.3f : 1f);
 
         // Tamamlandı
         isCalibrated = true;
         SaveCalibrationData();
-        OnCalibrationMessage?.Invoke("🎉 Kalibrasyon tamamlandı!");
+        OnCalibrationMessage?.Invoke("Kalibrasyon tamamlandi!");
         OnCalibrationComplete?.Invoke();
 
-        Debug.Log($"[CALIBRATION] ✅ Min:{minLux:F1} Max:{maxLux:F1}");
+        Debug.Log($"[CALIBRATION] Min:{minLux:F1} Max:{maxLux:F1}");
     }
 
     // --- Normalize Fonksiyonu ---
@@ -110,7 +130,7 @@ public class CalibrationManager : MonoBehaviour
         PlayerPrefs.SetFloat(SAVE_KEY + "_max", maxLux);
         PlayerPrefs.SetInt(SAVE_KEY + "_done", 1);
         PlayerPrefs.Save();
-        Debug.Log("[CALIBRATION] 💾 Kaydedildi!");
+        Debug.Log("[CALIBRATION] [KAYDET] Kaydedildi!");
     }
 
     private void LoadCalibrationData()
@@ -123,7 +143,7 @@ public class CalibrationManager : MonoBehaviour
             // Validasyon: Min >= Max ise kalibrasyon bozuk — sil ve sıfırla
             if (savedMin >= savedMax)
             {
-                Debug.LogWarning($"[CALIBRATION] ⚠️ Bozuk kalibrasyon (Min:{savedMin:F1} >= Max:{savedMax:F1}) — silindi, yeniden kalibrasyon gerekli!");
+                Debug.LogWarning($"[CALIBRATION] [UYARI] Bozuk kalibrasyon (Min:{savedMin:F1} >= Max:{savedMax:F1}) — silindi, yeniden kalibrasyon gerekli!");
                 ClearCalibrationData();
             }
             else
@@ -133,12 +153,12 @@ public class CalibrationManager : MonoBehaviour
                 isCalibrated = true;
                 debugMinLux = minLux;
                 debugMaxLux = maxLux;
-                Debug.Log($"[CALIBRATION] 📂 Yüklendi! Min:{minLux:F1} Max:{maxLux:F1}");
+                Debug.Log($"[CALIBRATION] [YUKLE] Yüklendi! Min:{minLux:F1} Max:{maxLux:F1}");
             }
         }
         else
         {
-            Debug.Log("[CALIBRATION] ⚠️ Kayıt yok, kalibrasyon gerekli!");
+            Debug.Log("[CALIBRATION] [UYARI] Kayıt yok, kalibrasyon gerekli!");
         }
     }
 
@@ -153,7 +173,7 @@ public class CalibrationManager : MonoBehaviour
         isCalibrated = false;
         debugMinLux  = minLux;
         debugMaxLux  = maxLux;
-        Debug.Log("[CALIBRATION] 🗑️ Kalibrasyon verisi silindi.");
+        Debug.Log("[CALIBRATION] [SIL] Kalibrasyon verisi silindi.");
     }
 
     // --- Getters ---
