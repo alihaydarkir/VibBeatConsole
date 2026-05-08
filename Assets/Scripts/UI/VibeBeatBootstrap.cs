@@ -5,16 +5,8 @@ using UnityEngine.UI;
 
 /// <summary>
 /// VibeBeat Bootstrap — Temizlenmiş Versiyon
-///
-/// ÖNCEKI SORUN: Bu script kendi AudioSource'larını yaratıyordu ve
-/// AudioSynthesizer ile çakışıyordu (ikili ses mimarisi).
-///
-/// ÇÖZÜM: Bootstrap artık ses üretmez. Tüm ses işlemleri
-/// VibBeatMasterController → AudioSynthesizer zincirinde kalır.
-/// Bootstrap yalnızca şunlardan sorumludur:
-///   1. UI bağlantıları (buton listener'ları)
-///   2. Kalibrasyon UI animasyonu (coroutine)
-///   3. Ekran yönetimi (VibeBeatScreenManager delegasyonu)
+/// Yalnızca UI bağlantıları, kalibrasyon animasyonu ve ekran yönetiminden sorumludur.
+/// Ses üretimi → VibBeatMasterController → AudioSynthesizer.
 /// </summary>
 public class VibeBeatBootstrap : MonoBehaviour
 {
@@ -22,11 +14,10 @@ public class VibeBeatBootstrap : MonoBehaviour
     // BAĞIMLILIKLAR
     // ─────────────────────────────────────────
     [Header("Çekirdek Sistem Referansları")]
-    [Tooltip("Sahnede VibBeatMasterController'ı barındıran GameObject")]
     [SerializeField] private VibBeatMasterController masterController;
 
     // ─────────────────────────────────────────
-    // EKRANLAR (Awake'de otomatik bulunur)
+    // EKRANLAR
     // ─────────────────────────────────────────
     private GameObject splashScreen;
     private GameObject onboardingScreen;
@@ -43,17 +34,11 @@ public class VibeBeatBootstrap : MonoBehaviour
     private TextMeshProUGUI calLuxText;
     private TextMeshProUGUI calStatusText;
 
-    // ─────────────────────────────────────────
-    // EKRAN MANAGER (SESsiz ekran geçişleri için)
-    // ─────────────────────────────────────────
     private VibeBeatScreenManager screenManager;
-
-    // ─────────────────────────────────────────
-    // AYARLAR STATE (Ses Bootstrap'ta DEĞİL MasterController'da)
-    // ─────────────────────────────────────────
     private bool  hapticEnabled = true;
-    private int   effectLevel   = 1;    // 0=Düşük 1=Orta 2=Yüksek
+    private int   effectLevel   = 1;
     private float masterVolume  = 0.7f;
+    private bool  guitarMuted   = false;
 
     // ─────────────────────────────────────────
     // AWAKE
@@ -62,23 +47,41 @@ public class VibeBeatBootstrap : MonoBehaviour
     {
         screenManager = GetComponent<VibeBeatScreenManager>();
 
-        // Ekranları isimle bul
-        Transform t     = transform;
+        // MasterController sahnede yoksa otomatik bul
+        if (masterController == null)
+            masterController = FindFirstObjectByType<VibBeatMasterController>();
+
+        if (masterController == null)
+            Debug.LogError("[BOOTSTRAP] ❌ VibBeatMasterController sahnede bulunamadı! Inspector'dan ata.");
+        else
+            Debug.Log("[BOOTSTRAP] ✅ MasterController bulundu.");
+
+        Transform t      = transform;
         splashScreen     = FindChild(t, "SplashScreen");
         onboardingScreen = FindChild(t, "OnboardingScreen");
         calibrationScreen= FindChild(t, "CalibrationScreen");
         mainConsoleScreen= FindChild(t, "MainConsoleScreen");
         settingsScreen   = FindChild(t, "SettingsScreen");
 
-        // UI referansları bağlamak için hepsini geçici aç
-        ActivateAllForBinding(true);
+        LogScreenStatus();
+
+        // Bağlama için hepsini geçici aç
+        ActivateAll(true);
         BindAllUI();
-        ActivateAllForBinding(false);
+        ActivateAll(false);
 
-        // Başlangıç ekranı
         ShowSplash();
+        Debug.Log("[BOOTSTRAP] ✅ Başlatma tamamlandı.");
+    }
 
-        Debug.Log("[BOOTSTRAP] ✅ Temiz başlatma tamamlandı. (Ses: MasterController'da)");
+    private void LogScreenStatus()
+    {
+        Debug.Log($"[BOOTSTRAP] Ekranlar — " +
+            $"Splash:{splashScreen != null} " +
+            $"Onboard:{onboardingScreen != null} " +
+            $"Calib:{calibrationScreen != null} " +
+            $"Main:{mainConsoleScreen != null} " +
+            $"Settings:{settingsScreen != null}");
     }
 
     // ─────────────────────────────────────────
@@ -95,112 +98,151 @@ public class VibeBeatBootstrap : MonoBehaviour
 
     private void BindSplash()
     {
-        if (splashScreen == null) return;
-        BindButton(splashScreen.transform, "StartButton", ShowOnboarding);
+        if (splashScreen == null) { Debug.LogWarning("[BOOTSTRAP] SplashScreen null!"); return; }
+        BindBtn(splashScreen.transform, "StartButton", ShowOnboarding);
     }
 
     private void BindOnboarding()
     {
-        if (onboardingScreen == null) return;
-        BindButton(onboardingScreen.transform, "ContinueButton", ShowCalibration);
+        if (onboardingScreen == null) { Debug.LogWarning("[BOOTSTRAP] OnboardingScreen null!"); return; }
+        BindBtn(onboardingScreen.transform, "ContinueButton", ShowCalibration);
     }
 
     private void BindCalibration()
     {
-        if (calibrationScreen == null) return;
+        if (calibrationScreen == null) { Debug.LogWarning("[BOOTSTRAP] CalibrationScreen null!"); return; }
+
         Transform card = calibrationScreen.transform.Find("CalibrationCard");
-        if (card == null) return;
+        if (card == null) { Debug.LogWarning("[BOOTSTRAP] CalibrationCard bulunamadı!"); return; }
 
         calStepText    = card.Find("StepText")?.GetComponent<TextMeshProUGUI>();
         calPercentText = card.Find("PercentText")?.GetComponent<TextMeshProUGUI>();
+        Transform bar  = card.Find("InfoBar");
+        calLuxText     = bar?.Find("LuxText")?.GetComponent<TextMeshProUGUI>();
+        calStatusText  = bar?.Find("StatusText")?.GetComponent<TextMeshProUGUI>();
 
-        Transform bar = card.Find("InfoBar");
-        if (bar != null)
-        {
-            calLuxText    = bar.Find("LuxText")?.GetComponent<TextMeshProUGUI>();
-            calStatusText = bar.Find("StatusText")?.GetComponent<TextMeshProUGUI>();
-        }
-
-        BindButtonDirect(card, "RetryButton",    () => StartCoroutine(CalibrationUIRoutine()));
-        BindButtonDirect(card, "ContinueButton", ShowMainConsole);
+        BindBtn(card, "RetryButton",    () => StartCoroutine(CalibrationUIRoutine()));
+        BindBtn(card, "ContinueButton", ShowMainConsole);
     }
 
     private void BindMainConsole()
     {
-        if (mainConsoleScreen == null) return;
+        if (mainConsoleScreen == null) { Debug.LogWarning("[BOOTSTRAP] MainConsoleScreen null!"); return; }
 
+        // TopBar
         Transform topBar = mainConsoleScreen.transform.Find("TopBar");
-        topBar?.GetComponent<Button>(); // null check
-        BindButtonDirect(topBar, "SettingsButton", ShowSettings);
+        if (topBar != null)
+            BindBtn(topBar, "SettingsButton", ShowSettings);
+        else
+            Debug.LogWarning("[BOOTSTRAP] TopBar bulunamadı!");
 
+        // Guitar Panel
         Transform guitar = mainConsoleScreen.transform.Find("GuitarPanel");
         if (guitar != null)
         {
             sensorValueText = guitar.Find("SensorValueText")?.GetComponent<TextMeshProUGUI>();
-            BindButtonDirect(guitar, "MuteButton",     ToggleGuitarMute);
-            BindButtonDirect(guitar, "CalibrateButton",ShowCalibration);
+            BindBtn(guitar, "MuteButton",     ToggleGuitarMute);
+            BindBtn(guitar, "CalibrateButton",ShowCalibration);
+            Debug.Log("[BOOTSTRAP] ✅ GuitarPanel bağlandı.");
         }
+        else Debug.LogWarning("[BOOTSTRAP] GuitarPanel bulunamadı!");
 
+        // Right Panel → Piano + Drum
         Transform right = mainConsoleScreen.transform.Find("RightPanel");
-        if (right != null)
-        {
-            // Piano tuşları — ses VibBeatMasterController'a iletilir
-            Transform piano = right.Find("PianoPanel");
-            if (piano != null)
-            {
-                string[] notes = { "C4", "D4", "E4", "F4" };
-                for (int i = 0; i < notes.Length; i++)
-                {
-                    int idx = i;
-                    Button key = piano.Find("PianoKey_" + notes[i])?.GetComponent<Button>();
-                    if (key != null)
-                        key.onClick.AddListener(() => masterController?.HandlePianoKeyFromUI(idx));
-                }
-            }
+        if (right == null) { Debug.LogWarning("[BOOTSTRAP] RightPanel bulunamadı!"); return; }
 
-            // Davul pad
-            Transform drum = right.Find("DrumPanel");
-            if (drum != null)
-                BindButtonDirect(drum, "DrumPad", () => masterController?.HandleDrumHitFromUI());
+        // Piano
+        Transform piano = right.Find("PianoPanel");
+        if (piano != null)
+        {
+            string[] notes = { "C4", "D4", "E4", "F4" };
+            int bound = 0;
+            for (int i = 0; i < notes.Length; i++)
+            {
+                int     idx  = i;
+                string  name = "PianoKey_" + notes[i];
+                Button  key  = piano.Find(name)?.GetComponent<Button>();
+                if (key != null)
+                {
+                    key.onClick.RemoveAllListeners();
+                    key.onClick.AddListener(() =>
+                    {
+                        Debug.Log($"[BOOTSTRAP] 🎹 Piyano tuş basıldı: {idx}");
+                        if (masterController != null)
+                            masterController.HandlePianoKeyFromUI(idx);
+                        else
+                            Debug.LogError("[BOOTSTRAP] masterController NULL — piyano çalınamadı!");
+                    });
+                    bound++;
+                }
+                else Debug.LogWarning($"[BOOTSTRAP] {name} butonu bulunamadı!");
+            }
+            Debug.Log($"[BOOTSTRAP] ✅ Piano: {bound}/4 tuş bağlandı.");
         }
+        else Debug.LogWarning("[BOOTSTRAP] PianoPanel bulunamadı!");
+
+        // Drum
+        Transform drum = right.Find("DrumPanel");
+        if (drum != null)
+        {
+            Button padBtn = drum.Find("DrumPad")?.GetComponent<Button>();
+            if (padBtn != null)
+            {
+                padBtn.onClick.RemoveAllListeners();
+                padBtn.onClick.AddListener(() =>
+                {
+                    Debug.Log("[BOOTSTRAP] 🥁 Davul basıldı!");
+                    if (masterController != null)
+                        masterController.HandleDrumHitFromUI();
+                    else
+                        Debug.LogError("[BOOTSTRAP] masterController NULL — davul çalınamadı!");
+                });
+                Debug.Log("[BOOTSTRAP] ✅ DrumPad bağlandı.");
+            }
+            else Debug.LogWarning("[BOOTSTRAP] DrumPad butonu bulunamadı!");
+        }
+        else Debug.LogWarning("[BOOTSTRAP] DrumPanel bulunamadı!");
     }
 
     private void BindSettings()
     {
-        if (settingsScreen == null) return;
+        if (settingsScreen == null) { Debug.LogWarning("[BOOTSTRAP] SettingsScreen null!"); return; }
 
-        BindButton(settingsScreen.transform, "BackToMainButton", ShowMainConsole);
+        // BackToMainButton doğrudan settingsScreen altında
+        BindBtn(settingsScreen.transform, "BackToMainButton", ShowMainConsole);
 
         Transform sp = settingsScreen.transform.Find("SettingsPanel");
-        if (sp == null) return;
+        if (sp == null) { Debug.LogWarning("[BOOTSTRAP] SettingsPanel bulunamadı!"); return; }
 
-        BindButtonDirect(sp, "RecalibrateRow", ShowCalibration);
+        Debug.Log("[BOOTSTRAP] ✅ SettingsPanel bulundu, satırlar bağlanıyor...");
+
+        // Tekrar kalibre
+        BindBtn(sp, "RecalibrateRow", ShowCalibration);
 
         // Haptic toggle
         Button hapticBtn = sp.Find("HapticRow")?.GetComponent<Button>();
         if (hapticBtn != null)
         {
-            TextMeshProUGUI hapticStatus = sp.Find("HapticRow/HapticStatusText")?.GetComponent<TextMeshProUGUI>();
-            Image toggleTrack = sp.Find("HapticRow/ToggleTrack")?.GetComponent<Image>();
-
+            var hapticStatus = sp.Find("HapticRow/HapticStatusText")?.GetComponent<TextMeshProUGUI>();
+            var toggleTrack  = sp.Find("HapticRow/ToggleTrack")?.GetComponent<Image>();
             hapticBtn.onClick.RemoveAllListeners();
             hapticBtn.onClick.AddListener(() =>
             {
                 hapticEnabled = !hapticEnabled;
+                Debug.Log($"[BOOTSTRAP] Haptic: {hapticEnabled}");
                 masterController?.SetHapticEnabled(hapticEnabled);
-
                 if (hapticStatus != null)
                 {
                     hapticStatus.text  = hapticEnabled ? "AÇIK" : "KAPALI";
-                    hapticStatus.color = hapticEnabled ? ParseHex("#00F0FF") : ParseHex("#8899AA");
+                    hapticStatus.color = Hex(hapticEnabled ? "#00F0FF" : "#8899AA");
                 }
                 if (toggleTrack != null)
-                    toggleTrack.color = hapticEnabled ? ParseHex("#00F0FF") : ParseHex("#1A2535");
-
-                AccessibilityManager.Instance?.Speak(
-                    $"Titreşim {(hapticEnabled ? "açıldı" : "kapatıldı")}");
+                    toggleTrack.color = Hex(hapticEnabled ? "#00F0FF" : "#1A2535");
+                AccessibilityManager.Instance?.Speak(hapticEnabled ? "Titreşim açıldı" : "Titreşim kapatıldı");
             });
+            Debug.Log("[BOOTSTRAP] ✅ HapticRow bağlandı.");
         }
+        else Debug.LogWarning("[BOOTSTRAP] HapticRow butonu bulunamadı!");
 
         // Efekt seviyeleri
         Transform effectRow = sp.Find("EffectIntensityRow");
@@ -209,69 +251,91 @@ public class VibeBeatBootstrap : MonoBehaviour
             string[] effNames = { "EffectBtn_Low", "EffectBtn_Mid", "EffectBtn_High" };
             for (int i = 0; i < effNames.Length; i++)
             {
-                int level = i;
-                Button btn = effectRow.Find(effNames[i])?.GetComponent<Button>();
+                int   level = i;
+                Button btn  = effectRow.Find(effNames[i])?.GetComponent<Button>();
                 if (btn != null)
                 {
                     btn.onClick.RemoveAllListeners();
                     btn.onClick.AddListener(() =>
                     {
                         effectLevel = level;
-                        UpdateEffectButtonVisuals(effectRow, effNames);
+                        Debug.Log($"[BOOTSTRAP] Efekt seviyesi: {level}");
+                        UpdateEffectVisuals(effectRow, effNames);
                     });
                 }
+                else Debug.LogWarning($"[BOOTSTRAP] {effNames[i]} bulunamadı!");
             }
-            UpdateEffectButtonVisuals(effectRow, new[] { "EffectBtn_Low","EffectBtn_Mid","EffectBtn_High" });
+            UpdateEffectVisuals(effectRow, new[]{"EffectBtn_Low","EffectBtn_Mid","EffectBtn_High"});
+            Debug.Log("[BOOTSTRAP] ✅ EffectIntensityRow bağlandı.");
         }
+        else Debug.LogWarning("[BOOTSTRAP] EffectIntensityRow bulunamadı!");
 
-        // Ses seviyesi slider
+        // Ses slider
         Transform volumeRow = sp.Find("VolumeRow");
         if (volumeRow != null)
         {
-            Slider volSlider = volumeRow.Find("VolumeSlider")?.GetComponent<Slider>();
-            TextMeshProUGUI volText = volumeRow.Find("VolumeValueText")?.GetComponent<TextMeshProUGUI>();
-
-            if (volSlider != null)
+            Slider          sl      = volumeRow.Find("VolumeSlider")?.GetComponent<Slider>();
+            TextMeshProUGUI volTxt  = volumeRow.Find("VolumeValueText")?.GetComponent<TextMeshProUGUI>();
+            if (sl != null)
             {
-                volSlider.value = masterVolume;
-                volSlider.onValueChanged.RemoveAllListeners();
-                volSlider.onValueChanged.AddListener(val =>
+                sl.value = masterVolume;
+                sl.onValueChanged.RemoveAllListeners();
+                sl.onValueChanged.AddListener(val =>
                 {
                     masterVolume = val;
-                    masterController?.SetMasterVolume(val);   // MasterController üzerinden
-                    if (volText != null)
-                        volText.text = Mathf.RoundToInt(val * 100f) + "%";
+                    masterController?.SetMasterVolume(val);
+                    if (volTxt != null) volTxt.text = Mathf.RoundToInt(val * 100f) + "%";
+                    Debug.Log($"[BOOTSTRAP] Ses: {Mathf.RoundToInt(val*100f)}%");
                 });
+                Debug.Log("[BOOTSTRAP] ✅ VolumeSlider bağlandı.");
             }
+            else Debug.LogWarning("[BOOTSTRAP] VolumeSlider bulunamadı!");
         }
+        else Debug.LogWarning("[BOOTSTRAP] VolumeRow bulunamadı!");
     }
 
     // ─────────────────────────────────────────
     // EKRAN GEÇİŞLERİ
     // ─────────────────────────────────────────
-    public void ShowSplash()        => screenManager?.ShowSplash();
-    public void ShowOnboarding()    => screenManager?.ShowOnboarding();
-    public void ShowMainConsole()   => screenManager?.ShowMainConsole();
-    public void ShowSettings()      => screenManager?.ShowSettings();
+    public void ShowSplash()
+    {
+        Debug.Log("[BOOTSTRAP] → SplashScreen");
+        screenManager?.ShowSplash();
+    }
+
+    public void ShowOnboarding()
+    {
+        Debug.Log("[BOOTSTRAP] → OnboardingScreen");
+        screenManager?.ShowOnboarding();
+    }
+
+    public void ShowMainConsole()
+    {
+        Debug.Log("[BOOTSTRAP] → MainConsoleScreen");
+        screenManager?.ShowMainConsole();
+    }
+
+    public void ShowSettings()
+    {
+        Debug.Log("[BOOTSTRAP] → SettingsScreen");
+        screenManager?.ShowSettings();
+    }
 
     public void ShowCalibration()
     {
+        Debug.Log("[BOOTSTRAP] → CalibrationScreen");
         screenManager?.ShowCalibration();
         StartCoroutine(CalibrationUIRoutine());
     }
 
     // ─────────────────────────────────────────
     // KALİBRASYON UI ANİMASYONU
-    // Gerçek kalibrasyon mantığı CalibrationManager'da;
-    // bu coroutine yalnızca UI'ı günceller.
     // ─────────────────────────────────────────
     private IEnumerator CalibrationUIRoutine()
     {
         Image progressRing = calibrationScreen?.transform
-            .Find("CalibrationCard/RingContainer/ProgressRing")
-            ?.GetComponent<Image>();
+            .Find("CalibrationCard/RingContainer/ProgressRing")?.GetComponent<Image>();
 
-        // ADIM 1
         SetText(calStepText,   "1/2  Sol elinizi sensörün üstüne kapatın");
         SetText(calPercentText,"0%");
         SetText(calLuxText,    "Lux: ölçülüyor...");
@@ -279,39 +343,35 @@ public class VibeBeatBootstrap : MonoBehaviour
         if (progressRing) progressRing.fillAmount = 0f;
 
         AccessibilityManager.Instance?.AnnounceCalibrationStep(
-            "Adım 1: Sol elinizi telefon ışık sensörünün üzerine kapatın ve bekleyin.");
+            "Adım 1: Sol elinizi ışık sensörünün üzerine kapatın.");
 
         float duration = 2.5f, timer = 0f;
         while (timer < duration)
         {
             timer += Time.deltaTime;
             float n   = Mathf.Clamp01(timer / duration);
-            int   pct = Mathf.RoundToInt(n * 100f);
-
+            int   pct = Mathf.RoundToInt(n * 50f);
             SetText(calPercentText, pct + "%");
             SetText(calLuxText,     "Lux: " + Mathf.Lerp(0f, 12f, n).ToString("0.0"));
-            if (progressRing) progressRing.fillAmount = n * 0.5f;  // 0 → %50 (adım 1)
-
-            if (n >= 0.5f && n < 0.51f)  // Yarı nokta geçişi
-            {
-                SetText(calStepText, "2/2  Elinizi sensörden uzaklaştırın");
-                AccessibilityManager.Instance?.AnnounceCalibrationStep(
-                    "Adım 2: Elinizi sensörden yavaşça uzaklaştırın.");
-            }
-
-            SetText(calStatusText, n < 0.5f ? "Durum: Min ölçülüyor" : "Durum: Max ölçülüyor");
+            SetText(calStatusText,  "Durum: Min ölçülüyor");
+            if (progressRing) progressRing.fillAmount = n * 0.5f;
             yield return null;
         }
 
-        // ADIM 2 — max lux
-        for (float t2 = 0f; t2 < duration; t2 += Time.deltaTime)
-        {
-            float n   = Mathf.Clamp01(t2 / duration);
-            int   pct = 50 + Mathf.RoundToInt(n * 50f);
+        SetText(calStepText, "2/2  Elinizi sensörden uzaklaştırın");
+        AccessibilityManager.Instance?.AnnounceCalibrationStep(
+            "Adım 2: Elinizi yavaşça uzaklaştırın.");
 
+        timer = 0f;
+        while (timer < duration)
+        {
+            timer += Time.deltaTime;
+            float n   = Mathf.Clamp01(timer / duration);
+            int   pct = 50 + Mathf.RoundToInt(n * 50f);
             SetText(calPercentText, pct + "%");
             SetText(calLuxText,     "Lux: " + Mathf.Lerp(12f, 3500f, n).ToString("0.0"));
-            if (progressRing) progressRing.fillAmount = 0.5f + n * 0.5f;  // %50 → %100
+            SetText(calStatusText,  "Durum: Max ölçülüyor");
+            if (progressRing) progressRing.fillAmount = 0.5f + n * 0.5f;
             yield return null;
         }
 
@@ -320,21 +380,18 @@ public class VibeBeatBootstrap : MonoBehaviour
         SetText(calStatusText, "Durum: Hazır");
         if (progressRing) progressRing.fillAmount = 1f;
 
-        // MasterController'a gerçek kalibrasyonu da başlat
         masterController?.StartCalibration();
-
         AccessibilityManager.Instance?.AnnounceCalibrationComplete();
         Debug.Log("[BOOTSTRAP] ✅ Kalibrasyon UI tamamlandı.");
     }
 
     // ─────────────────────────────────────────
-    // GITAR MUTE (UI → MasterController)
+    // GITAR MUTE
     // ─────────────────────────────────────────
-    private bool guitarMuted = false;
-
     private void ToggleGuitarMute()
     {
         guitarMuted = !guitarMuted;
+        Debug.Log($"[BOOTSTRAP] 🎸 Guitar mute: {guitarMuted}");
         masterController?.SetGuitarMuteFromUI(guitarMuted);
         AccessibilityManager.Instance?.Speak(guitarMuted ? "Gitar susturuldu" : "Gitar açıldı");
     }
@@ -345,16 +402,13 @@ public class VibeBeatBootstrap : MonoBehaviour
     private void Update()
     {
         if (sensorValueText != null && masterController != null)
-        {
-            float norm = masterController.GetNormalizedSensorValue();
-            sensorValueText.text = norm.ToString("0.00");
-        }
+            sensorValueText.text = masterController.GetNormalizedSensorValue().ToString("0.00");
     }
 
     // ─────────────────────────────────────────
     // YARDIMCILAR
     // ─────────────────────────────────────────
-    private void ActivateAllForBinding(bool active)
+    private void ActivateAll(bool active)
     {
         SetActive(splashScreen,      active);
         SetActive(onboardingScreen,  active);
@@ -363,35 +417,35 @@ public class VibeBeatBootstrap : MonoBehaviour
         SetActive(settingsScreen,    active);
     }
 
-    private void BindButton(Transform parent, string childName, UnityEngine.Events.UnityAction action)
+    /// <summary>
+    /// Transform hiyerarşisinde verilen isimli çocuğu bulur ve Button'unu bağlar.
+    /// Bulunamazsa uyarı loglar — sessiz başarısızlık yok.
+    /// </summary>
+    private void BindBtn(Transform parent, string childName, UnityEngine.Events.UnityAction action)
     {
-        Button btn = parent?.Find(childName)?.GetComponent<Button>();
-        if (btn == null) return;
+        if (parent == null) { Debug.LogWarning($"[BOOTSTRAP] BindBtn: parent null, aranıyor: {childName}"); return; }
+        Transform childT = parent.Find(childName);
+        if (childT == null) { Debug.LogWarning($"[BOOTSTRAP] '{childName}' bulunamadı (parent: {parent.name})"); return; }
+        Button btn = childT.GetComponent<Button>();
+        if (btn == null) { Debug.LogWarning($"[BOOTSTRAP] '{childName}' üzerinde Button component yok!"); return; }
         btn.onClick.RemoveAllListeners();
         btn.onClick.AddListener(action);
+        Debug.Log($"[BOOTSTRAP] ✅ '{childName}' butonu bağlandı.");
     }
 
-    private void BindButtonDirect(Transform parent, string childName, UnityEngine.Events.UnityAction action)
-        => BindButton(parent, childName, action);
-
-    private void UpdateEffectButtonVisuals(Transform effectRow, string[] names)
+    private void UpdateEffectVisuals(Transform effectRow, string[] names)
     {
-        Color active   = ParseHex("#00F0FF");
-        Color inactive = ParseHex("#1A2535");
-
         for (int i = 0; i < names.Length; i++)
         {
             Transform btnT = effectRow.Find(names[i]);
             if (btnT == null) continue;
-
             Image img = btnT.GetComponent<Image>();
+            Color ac  = Hex("#00F0FF");
             if (img != null)
-                img.color = i == effectLevel
-                    ? new Color(active.r, active.g, active.b, 0.18f) : inactive;
-
+                img.color = i == effectLevel ? new Color(ac.r,ac.g,ac.b,0.18f) : Hex("#1A2535");
             TextMeshProUGUI lbl = btnT.Find("Label")?.GetComponent<TextMeshProUGUI>();
             if (lbl != null)
-                lbl.color = i == effectLevel ? active : ParseHex("#8899AA");
+                lbl.color = i == effectLevel ? ac : Hex("#8899AA");
         }
     }
 
@@ -404,9 +458,6 @@ public class VibeBeatBootstrap : MonoBehaviour
     private void SetText(TextMeshProUGUI tmp, string value)
     { if (tmp != null) tmp.text = value; }
 
-    private static Color ParseHex(string hex)
-    {
-        ColorUtility.TryParseHtmlString(hex, out Color c);
-        return c;
-    }
+    private static Color Hex(string h)
+    { ColorUtility.TryParseHtmlString(h, out Color c); return c; }
 }
