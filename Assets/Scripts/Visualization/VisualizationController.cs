@@ -1,200 +1,292 @@
-﻿using UnityEngine;
-using System.Collections;
+using UnityEngine;
+using UnityEngine.UI;
+using DG.Tweening;
 
+/// <summary>
+/// VibBeat Görselleştirme Kontrolcüsü
+///
+/// İBE — Feedback ilkesi:
+///   Her müzik etkileşimi anlık, orantılı ve çok duyusal geri bildirim üretir.
+///   DOTween ile UI animasyonları, Cartoon FX ile particle efektler birleşir.
+///
+/// Bağlantı noktaları:
+///   - Inspector'dan Cartoon FX prefab'larını EffectPrefab alanlarına sürükle
+///   - Inspector'dan Piano key Image bileşenlerini PianoKeyImages dizisine ata
+///   - GuitarWaveRect: MainConsoleScreen > GuitarPanel > WaveformArea RectTransform
+/// </summary>
 public class VisualizationController : MonoBehaviour
 {
-    // --- Particle Systems ---
-    [Header("Particle Systems")]
-    [SerializeField] private ParticleSystem guitarWaveEffect;
-    [SerializeField] private ParticleSystem pianoKeyEffect;
-    [SerializeField] private ParticleSystem drumImpactEffect;
+    // ─────────────────────────────────────────
+    // INSPECTOR — Cartoon FX Prefab'ları
+    // ─────────────────────────────────────────
+    [Header("Cartoon FX Prefab'ları")]
+    [Tooltip("Piyano tuşuna basınca çıkacak efekt (CFX3_MagicPoof vb.)")]
+    [SerializeField] private GameObject pianoEffectPrefab;
 
-    // --- Materyaller ---
-    [Header("Materials")]
-    [SerializeField] private Material guitarMaterial;
-    [SerializeField] private Material[] pianoKeyMaterials;  // 4 tuş için
+    [Tooltip("Davul vuruşunda çıkacak efekt (CFX_Explosion_B vb.)")]
+    [SerializeField] private GameObject drumEffectPrefab;
 
-    // --- Gitar Dalga Ayarları ---
-    [Header("Guitar Wave")]
-    [SerializeField] private float minEmissionRate = 5f;
-    [SerializeField] private float maxEmissionRate = 80f;
-    [SerializeField] private float minParticleSpeed = 0.5f;
-    [SerializeField] private float maxParticleSpeed = 5f;
+    [Tooltip("Gitar mute açıldığında / kapandığında çıkacak efekt")]
+    [SerializeField] private GameObject guitarMuteEffectPrefab;
 
-    // --- Piyano Işık Ayarları ---
-    [Header("Piano Emissive")]
-    [SerializeField] private float emissivePeakIntensity = 3f;
-    [SerializeField] private float emissiveFadeDuration = 0.4f;
+    // ─────────────────────────────────────────
+    // INSPECTOR — UI Referansları (DOTween için)
+    // ─────────────────────────────────────────
+    [Header("Piyano Tuş Image'ları (DOTween renk animasyonu)")]
+    [Tooltip("MainConsoleScreen > RightPanel > PianoPanel altındaki 4 tuşun Image bileşeni")]
+    [SerializeField] private Image[] pianoKeyImages = new Image[4];
 
-    // --- Renk Paleti ---
-    [Header("Colors")]
-    [SerializeField] private Color guitarColorLow = new Color(0f, 0.5f, 1f);
-    [SerializeField] private Color guitarColorHigh = new Color(1f, 0f, 0.5f);
-    [SerializeField]
-    private Color[] pianoKeyColors = new Color[]
+    [Header("Davul Pad (DOTween scale animasyonu)")]
+    [Tooltip("DrumPanel > DrumPad RectTransform")]
+    [SerializeField] private RectTransform drumPadRect;
+
+    [Header("Gitar Dalga Alanı (DOTween pulse animasyonu)")]
+    [Tooltip("GuitarPanel > WaveformArea RectTransform")]
+    [SerializeField] private RectTransform guitarWaveRect;
+
+    [Header("Gitar Sensör Değeri Text (DOTween renk)")]
+    [Tooltip("GuitarPanel > SensorValueText")]
+    [SerializeField] private UnityEngine.UI.Graphic sensorValueGraphic;
+
+    // ─────────────────────────────────────────
+    // RENK PALETİ (UI Builder ile uyumlu)
+    // ─────────────────────────────────────────
+    private static readonly Color GuitarCyan   = new Color(0f,    0.94f, 1f,    1f);  // #00F0FF
+    private static readonly Color PianoOrange  = new Color(1f,    0.65f, 0f,    1f);  // #FFA500
+    private static readonly Color DrumMagenta  = new Color(1f,    0.10f, 0.68f, 1f);  // #FF1AAD
+    private static readonly Color NeutralDark  = new Color(0.05f, 0.10f, 0.16f, 1f);  // #0D1A28
+
+    // Her nota için renk
+    private readonly Color[] noteColors = new Color[]
     {
-        new Color(1f, 0.3f, 0.3f),  // Do → Kırmızı
-        new Color(0.3f, 1f, 0.3f),  // Re → Yeşil
-        new Color(0.3f, 0.3f, 1f),  // Mi → Mavi
-        new Color(1f, 1f, 0.3f)     // Fa → Sarı
+        new Color(1f,    0.65f, 0f,    1f),  // Do  → Turuncu
+        new Color(0.8f,  0.9f,  0f,    1f),  // Re  → Sarı-yeşil
+        new Color(0f,    0.85f, 0.8f,  1f),  // Mi  → Turkuaz
+        new Color(0.85f, 0.3f,  1f,    1f),  // Fa  → Mor
     };
 
-    // --- Inspector Debug ---
+    // ─────────────────────────────────────────
+    // INSPECTOR DEBUG
+    // ─────────────────────────────────────────
     [Header("Debug")]
     [SerializeField] private float debugNormalizedValue = 0f;
 
+    // ─────────────────────────────────────────
+    // ÖZEL ALANLAR
+    // ─────────────────────────────────────────
+    private Tweener guitarPulseTween;   // sürekli gitar pulse tweeni
+    private bool    guitarMuted = false;
+
+    // ─────────────────────────────────────────
+    // BAŞLATMA
+    // ─────────────────────────────────────────
     private void Start()
     {
-        InitializeEffects();
+        // DOTween global ayarları
+        DOTween.SetTweensCapacity(200, 50);
+
+        StartGuitarIdlePulse();
+        Debug.Log("[VFX] [OK] VisualizationController baslatildi.");
     }
 
-    private void InitializeEffects()
-    {
-        // Gitar efektini başlat ama durdur
-        if (guitarWaveEffect != null)
-        {
-            guitarWaveEffect.Stop();
-            Debug.Log("[VFX] ✅ Guitar wave hazır");
-        }
+    // ─────────────────────────────────────────
+    // A) GİTAR GÖRSELLEŞTİRME — Her frame sensör verisiyle güncellenir
+    // ─────────────────────────────────────────
 
-        if (pianoKeyEffect != null)
-        {
-            pianoKeyEffect.Stop();
-            Debug.Log("[VFX] ✅ Piano effect hazır");
-        }
-
-        if (drumImpactEffect != null)
-        {
-            drumImpactEffect.Stop();
-            Debug.Log("[VFX] ✅ Drum impact hazır");
-        }
-    }
-
-    // --- Gitar Görselleştirme (Sensör Bazlı) ---
+    /// <summary>
+    /// Normalizedvalue (0-1) → Gitar dalga alanının ölçeği ve rengi.
+    /// DOTween ile anlık değişim yerine yumuşak geçiş sağlanır.
+    /// </summary>
     public void UpdateGuitarVisualization(float normalizedValue)
     {
         debugNormalizedValue = normalizedValue;
+        if (guitarMuted) return;
 
-        // Particle emission rate güncelle
-        if (guitarWaveEffect != null)
+        // Dalga alanını sensör değeriyle orantılı olarak büyüt
+        if (guitarWaveRect != null)
         {
-            var emission = guitarWaveEffect.emission;
-            emission.rateOverTime = Mathf.Lerp(
-                minEmissionRate, maxEmissionRate, normalizedValue
-            );
-
-            var main = guitarWaveEffect.main;
-            main.startSpeed = Mathf.Lerp(
-                minParticleSpeed, maxParticleSpeed, normalizedValue
-            );
-
-            // Renk geçişi (Kalın ses → Mavi, İnce ses → Pembe)
-            main.startColor = Color.Lerp(
-                guitarColorLow, guitarColorHigh, normalizedValue
-            );
-
-            // Efekt çalışmıyorsa başlat
-            if (!guitarWaveEffect.isPlaying)
-                guitarWaveEffect.Play();
+            float targetScaleY = Mathf.Lerp(0.85f, 1.15f, normalizedValue);
+            guitarWaveRect.DOScaleY(targetScaleY, 0.12f).SetEase(Ease.OutSine);
         }
 
-        // Material shader güncelle
-        if (guitarMaterial != null)
+        // Sensör değer text'inin rengi: düşük=koyu, yüksek=parlak cyan
+        if (sensorValueGraphic != null)
         {
-            guitarMaterial.SetFloat("_WaveAmplitude", normalizedValue);
-            guitarMaterial.SetFloat("_WaveFrequency",
-                Mathf.Lerp(0.5f, 4f, normalizedValue));
-            guitarMaterial.SetColor("_EmissionColor",
-                Color.Lerp(guitarColorLow, guitarColorHigh, normalizedValue)
-                * normalizedValue);
+            Color targetColor = Color.Lerp(
+                new Color(GuitarCyan.r, GuitarCyan.g, GuitarCyan.b, 0.4f),
+                GuitarCyan,
+                normalizedValue
+            );
+            sensorValueGraphic.DOColor(targetColor, 0.15f);
         }
     }
 
-    // --- Gitar Mute Görselleştirme ---
+    /// <summary>
+    /// Gitar mute olmadığında arka planda sürekli nefes alan pulse animasyonu.
+    /// Affordance ilkesi: Gitar bölgesinin "canlı" olduğunu pasif olarak gösterir.
+    /// </summary>
+    private void StartGuitarIdlePulse()
+    {
+        if (guitarWaveRect == null) return;
+
+        guitarPulseTween = guitarWaveRect
+            .DOScaleY(1.08f, 1.2f)
+            .SetEase(Ease.InOutSine)
+            .SetLoops(-1, LoopType.Yoyo);
+    }
+
     public void SetGuitarMuteVisual(bool isMuted)
     {
-        if (guitarWaveEffect == null) return;
+        guitarMuted = isMuted;
 
-        if (isMuted)
+        if (guitarWaveRect != null)
         {
-            guitarWaveEffect.Stop();
-            Debug.Log("[VFX] 🎸 Guitar wave DURDURULDU");
+            if (isMuted)
+            {
+                guitarPulseTween?.Pause();
+                // Mute: dalga alanı küçülsün ve soluklaşsın
+                guitarWaveRect.DOScaleY(0.7f, 0.3f).SetEase(Ease.OutCubic);
+            }
+            else
+            {
+                guitarPulseTween?.Play();
+                guitarWaveRect.DOScaleY(1f, 0.3f).SetEase(Ease.OutCubic);
+            }
         }
-        else
-        {
-            guitarWaveEffect.Play();
-            Debug.Log("[VFX] 🎸 Guitar wave BAŞLATILDI");
-        }
+
+        // Cartoon FX efekti
+        if (guitarMuteEffectPrefab != null && guitarWaveRect != null)
+            SpawnEffect(guitarMuteEffectPrefab, guitarWaveRect.position);
+
+        Debug.Log($"[VFX] Gitar mute: {isMuted}");
     }
 
-    // --- Piyano Tuş Görselleştirme ---
+    // ─────────────────────────────────────────
+    // B) PİYANO TUŞ GÖRSELLEŞTİRME
+    // ─────────────────────────────────────────
+
+    /// <summary>
+    /// Tuşa basınca:
+    ///   1. Tuş Image'ı nota rengine flash yapar (DOTween)
+    ///   2. Cartoon FX particle efekti tuşun üzerinde spawn olur
+    ///   3. Tuş hafifçe küçülüp geri gelir (press hissi)
+    ///
+    /// İBE — Feedback + Affordance: Kullanıcı dokunduğunda görsel ve renksel tepki
+    /// alır; görme engelli kullanıcı için TTS zaten var, bu görme yetisi olanlar için.
+    /// </summary>
     public void PlayPianoKeyVisualization(int keyIndex)
     {
         keyIndex = Mathf.Clamp(keyIndex, 0, 3);
+        Color noteColor = noteColors[keyIndex];
 
-        // Particle burst
-        if (pianoKeyEffect != null)
+        // 1. Image renk flash
+        if (pianoKeyImages != null && keyIndex < pianoKeyImages.Length
+            && pianoKeyImages[keyIndex] != null)
         {
-            var main = pianoKeyEffect.main;
-            main.startColor = pianoKeyColors[keyIndex];
-            pianoKeyEffect.Stop();
-            pianoKeyEffect.Play();
-            Debug.Log($"[VFX] 🎹 Piano effect: tuş {keyIndex}");
+            Image keyImg = pianoKeyImages[keyIndex];
+
+            keyImg.DOKill();  // önceki tween varsa iptal et
+
+            // Renk: nota rengine flash → eski renge dön
+            keyImg.DOColor(noteColor, 0.05f)
+                .SetEase(Ease.OutQuart)
+                .OnComplete(() =>
+                    keyImg.DOColor(NeutralDark, 0.35f).SetEase(Ease.InCubic)
+                );
+
+            // Scale: hafif press efekti
+            keyImg.rectTransform.DOKill();
+            keyImg.rectTransform
+                .DOScale(0.94f, 0.06f)
+                .SetEase(Ease.OutQuart)
+                .OnComplete(() =>
+                    keyImg.rectTransform.DOScale(1f, 0.2f).SetEase(Ease.OutBack)
+                );
         }
 
-        // Emissive parlaması
-        if (pianoKeyMaterials != null && keyIndex < pianoKeyMaterials.Length)
+        // 2. Cartoon FX particle
+        if (pianoEffectPrefab != null && pianoKeyImages != null
+            && keyIndex < pianoKeyImages.Length && pianoKeyImages[keyIndex] != null)
         {
-            if (pianoKeyMaterials[keyIndex] != null)
-            {
-                StartCoroutine(FlashEmissive(
-                    pianoKeyMaterials[keyIndex],
-                    pianoKeyColors[keyIndex],
-                    emissiveFadeDuration
-                ));
-            }
+            Vector3 spawnPos = pianoKeyImages[keyIndex].transform.position;
+            SpawnEffect(pianoEffectPrefab, spawnPos);
         }
+
+        Debug.Log($"[VFX] Piano key animasyonu: {keyIndex}");
     }
 
-    // --- Davul Görselleştirme ---
+    // ─────────────────────────────────────────
+    // C) DAVUL VURUŞ GÖRSELLEŞTİRME
+    // ─────────────────────────────────────────
+
+    /// <summary>
+    /// Davul vuruşunda:
+    ///   1. Pad büyür ve geri döner (punch scale — DOTween)
+    ///   2. Renk magenta'ya flash yapar
+    ///   3. Cartoon FX explosion efekti spawn olur
+    /// </summary>
     public void PlayDrumImpactVisualization()
     {
-        if (drumImpactEffect != null)
+        if (drumPadRect != null)
         {
-            drumImpactEffect.Stop();
-            drumImpactEffect.Play();
-            Debug.Log("[VFX] 🥁 Drum impact effect!");
+            drumPadRect.DOKill();
+
+            // DOPunchScale: vurma hissi veren elastik büyüme
+            drumPadRect.DOPunchScale(
+                punch:     new Vector3(0.12f, 0.12f, 0f),
+                duration:  0.4f,
+                vibrato:   6,
+                elasticity:0.5f
+            ).SetEase(Ease.OutQuart);
+
+            // Arka plan renk flash (Image varsa)
+            Image padImg = drumPadRect.GetComponent<Image>();
+            if (padImg != null)
+            {
+                padImg.DOKill();
+                padImg.DOColor(DrumMagenta, 0.04f)
+                    .OnComplete(() =>
+                        padImg.DOColor(NeutralDark, 0.4f).SetEase(Ease.InCubic)
+                    );
+            }
         }
+
+        // Cartoon FX
+        if (drumEffectPrefab != null && drumPadRect != null)
+            SpawnEffect(drumEffectPrefab, drumPadRect.position);
+
+        Debug.Log("[VFX] Davul animasyonu!");
     }
 
-    // --- Emissive Parlama Efekti ---
-    private IEnumerator FlashEmissive(Material mat, Color color, float duration)
+    // ─────────────────────────────────────────
+    // YARDIMCI — Cartoon FX Spawn
+    // ─────────────────────────────────────────
+
+    /// <summary>
+    /// Verilen pozisyonda Cartoon FX prefab'ını spawn eder ve
+    /// Particle System bitince otomatik yok eder.
+    /// </summary>
+    private void SpawnEffect(GameObject prefab, Vector3 worldPosition)
     {
-        // Parla
-        mat.EnableKeyword("_EMISSION");
-        mat.SetColor("_EmissionColor", color * emissivePeakIntensity);
+        if (prefab == null) return;
 
-        float elapsed = 0f;
-        while (elapsed < duration)
-        {
-            elapsed += Time.deltaTime;
-            float t = elapsed / duration;
+        GameObject fx = Instantiate(prefab, worldPosition, Quaternion.identity);
 
-            // Kademeli sön
-            float intensity = Mathf.Lerp(emissivePeakIntensity, 0f, t);
-            mat.SetColor("_EmissionColor", color * intensity);
+        // Particle System süresini al, o kadar sonra yok et
+        ParticleSystem ps = fx.GetComponent<ParticleSystem>();
+        float lifetime = (ps != null)
+            ? ps.main.duration + ps.main.startLifetime.constantMax
+            : 2f;
 
-            yield return null;
-        }
-
-        // Tamamen söndür
-        mat.SetColor("_EmissionColor", Color.black);
+        Destroy(fx, lifetime);
     }
 
+    // ─────────────────────────────────────────
+    // TEMİZLİK
+    // ─────────────────────────────────────────
     private void OnDestroy()
     {
-        // Material instance'larını temizle
-        if (guitarMaterial != null)
-            guitarMaterial.SetColor("_EmissionColor", Color.black);
+        guitarPulseTween?.Kill();
+        DOTween.KillAll();
     }
 }
