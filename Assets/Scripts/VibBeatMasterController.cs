@@ -1,24 +1,41 @@
-﻿using UnityEngine;
+using UnityEngine;
 
+/// <summary>
+/// VibBeat Merkezi Orkestratör
+///
+/// Tüm sistemler arasındaki veri akışını yönetir.
+/// Bootstrap ve UI katmanı bu sınıf üzerinden ses/sensör kontrolü yapar.
+/// Bu sayede çift ses mimarisi sorunu ortadan kalkar.
+///
+/// Veri akışı:
+///   SensorController → CalibrationManager → [normalize] → AudioSynthesizer + VisualizationController
+///   TouchZoneController → [event] → AudioSynthesizer + HapticManager + VisualizationController
+///   Bootstrap UI → [public API] → bu sınıf → ilgili sistem
+/// </summary>
 public class VibBeatMasterController : MonoBehaviour
 {
-    // --- Sistemler ---
-    [Header("Core Systems")]
-    [SerializeField] private SensorController sensorController;
-    [SerializeField] private CalibrationManager calibrationManager;
-    [SerializeField] private TouchZoneController touchZoneController;
-    [SerializeField] private AudioSynthesizer audioSynthesizer;
-    [SerializeField] private HapticFeedbackManager hapticManager;
+    // ─────────────────────────────────────────
+    // INSPECTOR — Sistem Referansları
+    // ─────────────────────────────────────────
+    [Header("Çekirdek Sistemler")]
+    [SerializeField] private SensorController        sensorController;
+    [SerializeField] private CalibrationManager      calibrationManager;
+    [SerializeField] private TouchZoneController     touchZoneController;
+    [SerializeField] private AudioSynthesizer        audioSynthesizer;
+    [SerializeField] private HapticFeedbackManager   hapticManager;
     [SerializeField] private VisualizationController visualController;
 
-    // --- State ---
-    private bool isRunning = false;
+    [Header("Debug (Read-Only)")]
+    [SerializeField] private float  debugRawLux        = 0f;
+    [SerializeField] private float  debugNormalizedLux  = 0f;
+    [SerializeField] private bool   debugGuitarMuted    = false;
+    [SerializeField] private string debugSensorStatus   = "";
 
-    // --- Inspector Debug ---
-    [Header("Debug")]
-    [SerializeField] private float debugNormalizedLux = 0f;
-    [SerializeField] private float debugRawLux = 0f;
-    [SerializeField] private bool debugGuitarMuted = false;
+    // ─────────────────────────────────────────
+    // ÖZEL ALANLAR
+    // ─────────────────────────────────────────
+    private bool  isRunning         = false;
+    private float normalizedSensor  = 0f;   // Bootstrap'in okuyabileceği normalize değer
 
     // ─────────────────────────────────────────
     // BAŞLATMA
@@ -28,54 +45,60 @@ public class VibBeatMasterController : MonoBehaviour
         ValidateSystems();
         SubscribeEvents();
         isRunning = true;
-        Debug.Log("[MASTER] ✅ VibBeat başlatıldı!");
+        Debug.Log("[MASTER] ✅ VibBeat başlatıldı.");
     }
 
     private void ValidateSystems()
     {
-        if (sensorController == null) Debug.LogError("[MASTER] ❌ SensorController eksik!");
-        if (calibrationManager == null) Debug.LogError("[MASTER] ❌ CalibrationManager eksik!");
-        if (touchZoneController == null) Debug.LogError("[MASTER] ❌ TouchZoneController eksik!");
-        if (audioSynthesizer == null) Debug.LogError("[MASTER] ❌ AudioSynthesizer eksik!");
-        if (hapticManager == null) Debug.LogError("[MASTER] ❌ HapticManager eksik!");
-        if (visualController == null) Debug.LogError("[MASTER] ❌ VisualizationController eksik!");
+        if (!sensorController)     Debug.LogError("[MASTER] ❌ SensorController eksik!");
+        if (!calibrationManager)   Debug.LogError("[MASTER] ❌ CalibrationManager eksik!");
+        if (!touchZoneController)  Debug.LogError("[MASTER] ❌ TouchZoneController eksik!");
+        if (!audioSynthesizer)     Debug.LogError("[MASTER] ❌ AudioSynthesizer eksik!");
+        if (!hapticManager)        Debug.LogError("[MASTER] ❌ HapticManager eksik!");
+        if (!visualController)     Debug.LogError("[MASTER] ❌ VisualizationController eksik!");
     }
 
     private void SubscribeEvents()
     {
-        // Touch events
-        touchZoneController.OnGuitarMuteChanged += HandleGuitarMuteChanged;
-        touchZoneController.OnPianoKeyPressed += HandlePianoKeyPressed;
-        touchZoneController.OnDrumHit += HandleDrumHit;
+        if (touchZoneController != null)
+        {
+            touchZoneController.OnGuitarMuteChanged += HandleGuitarMuteChanged;
+            touchZoneController.OnPianoKeyPressed   += HandlePianoKeyPressed;
+            touchZoneController.OnDrumHit           += HandleDrumHit;
+        }
 
-        // Kalibrasyon events
-        calibrationManager.OnCalibrationMessage += HandleCalibrationMessage;
-        calibrationManager.OnCalibrationComplete += HandleCalibrationComplete;
+        if (calibrationManager != null)
+        {
+            calibrationManager.OnCalibrationMessage  += HandleCalibrationMessage;
+            calibrationManager.OnCalibrationComplete += HandleCalibrationComplete;
+        }
 
-        Debug.Log("[MASTER] ✅ Eventler bağlandı!");
+        if (sensorController != null)
+        {
+            sensorController.OnSensorStatusChanged += HandleSensorStatus;
+        }
+
+        Debug.Log("[MASTER] ✅ Eventler bağlandı.");
     }
 
     // ─────────────────────────────────────────
-    // GÜNCELLEME (Her Frame)
+    // UPDATE
     // ─────────────────────────────────────────
     private void Update()
     {
         if (!isRunning) return;
-
-        UpdateSensorData();
+        ProcessSensorData();
     }
 
-    private void UpdateSensorData()
+    private void ProcessSensorData()
     {
-        // Ham lux değerini al
-        float rawLux = sensorController.GetCurrentLux();
-        debugRawLux = rawLux;
+        float raw        = sensorController.GetCurrentLux();
+        float normalized = calibrationManager.NormalizeLuxValue(raw);
 
-        // Normalize et (0-1)
-        float normalized = calibrationManager.NormalizeLuxValue(rawLux);
+        debugRawLux        = raw;
         debugNormalizedLux = normalized;
+        normalizedSensor   = normalized;
 
-        // Gitar mute değilse sensör verisini işle
         if (!touchZoneController.IsGuitarMuted)
         {
             audioSynthesizer.SetGuitarPitchFromSensor(normalized);
@@ -86,62 +109,82 @@ public class VibBeatMasterController : MonoBehaviour
     // ─────────────────────────────────────────
     // EVENT HANDLERS
     // ─────────────────────────────────────────
-
-    // --- Gitar Mute ---
     private void HandleGuitarMuteChanged(bool isMuted)
     {
         debugGuitarMuted = isMuted;
-
         audioSynthesizer.SetGuitarMuted(isMuted);
         visualController.SetGuitarMuteVisual(isMuted);
         hapticManager.PlayGuitarMuteFeedback();
 
-        Debug.Log($"[MASTER] 🎸 Gitar mute: {isMuted}");
+        AccessibilityManager.Instance?.Speak(isMuted ? "Gitar susturuldu" : "Gitar açıldı");
     }
 
-    // --- Piyano ---
     private void HandlePianoKeyPressed(int keyIndex)
     {
         audioSynthesizer.PlayPianoNote(keyIndex);
         visualController.PlayPianoKeyVisualization(keyIndex);
         hapticManager.PlayPianoKeyFeedback();
-
-        Debug.Log($"[MASTER] 🎹 Piyano tuş: {keyIndex}");
+        AccessibilityManager.Instance?.AnnouncePianoZone(keyIndex);
     }
 
-    // --- Davul ---
     private void HandleDrumHit()
     {
         audioSynthesizer.PlayDrumKick();
         visualController.PlayDrumImpactVisualization();
         hapticManager.PlayDrumKickFeedback();
-
-        Debug.Log("[MASTER] 🥁 Davul!");
+        AccessibilityManager.Instance?.AnnounceDrumZone();
     }
 
-    // --- Kalibrasyon ---
     private void HandleCalibrationMessage(string message)
     {
-        Debug.Log($"[CALIBRATION] 📢 {message}");
+        Debug.Log($"[CALIBRATION] {message}");
+        AccessibilityManager.Instance?.AnnounceCalibrationStep(message);
     }
 
     private void HandleCalibrationComplete()
     {
-        Debug.Log("[MASTER] ✅ Kalibrasyon tamamlandı, sistem hazır!");
+        Debug.Log("[MASTER] ✅ Kalibrasyon tamamlandı.");
+        AccessibilityManager.Instance?.AnnounceCalibrationComplete();
+    }
+
+    private void HandleSensorStatus(string status)
+    {
+        debugSensorStatus = status;
+        if (status.StartsWith("ERROR"))
+            AccessibilityManager.Instance?.Speak("Sensör hatası. Lütfen uygulamayı yeniden başlatın.");
     }
 
     // ─────────────────────────────────────────
-    // PUBLIC API
+    // PUBLIC API — Bootstrap ve UI katmanı için
     // ─────────────────────────────────────────
-    public void StartCalibration()
+
+    /// <summary>Bootstrap'in okuyabileceği normalize sensör değeri (0-1)</summary>
+    public float GetNormalizedSensorValue() => normalizedSensor;
+
+    /// <summary>UI'dan piyano tuşu tetiklemek için</summary>
+    public void HandlePianoKeyFromUI(int keyIndex) => HandlePianoKeyPressed(keyIndex);
+
+    /// <summary>UI'dan davul vuruşu tetiklemek için</summary>
+    public void HandleDrumHitFromUI() => HandleDrumHit();
+
+    /// <summary>UI'dan gitar mute'u ayarlamak için</summary>
+    public void SetGuitarMuteFromUI(bool muted)
     {
-        calibrationManager.StartCalibration();
+        audioSynthesizer.SetGuitarMuted(muted);
+        visualController.SetGuitarMuteVisual(muted);
+        hapticManager.PlayGuitarMuteFeedback();
+        debugGuitarMuted = muted;
     }
 
-    public void SetHapticEnabled(bool enabled)
+    /// <summary>Ses seviyesini tüm AudioSource'larda eş zamanlı ayarla</summary>
+    public void SetMasterVolume(float volume)
     {
-        hapticManager.SetHapticEnabled(enabled);
+        // AudioSynthesizer bu metodu expose etmeli; şimdilik AudioListener üzerinden
+        AudioListener.volume = Mathf.Clamp01(volume);
     }
+
+    public void StartCalibration()     => calibrationManager?.StartCalibration();
+    public void SetHapticEnabled(bool e) => hapticManager?.SetHapticEnabled(e);
 
     // ─────────────────────────────────────────
     // TEMİZLİK
@@ -151,14 +194,19 @@ public class VibBeatMasterController : MonoBehaviour
         if (touchZoneController != null)
         {
             touchZoneController.OnGuitarMuteChanged -= HandleGuitarMuteChanged;
-            touchZoneController.OnPianoKeyPressed -= HandlePianoKeyPressed;
-            touchZoneController.OnDrumHit -= HandleDrumHit;
+            touchZoneController.OnPianoKeyPressed   -= HandlePianoKeyPressed;
+            touchZoneController.OnDrumHit           -= HandleDrumHit;
         }
 
         if (calibrationManager != null)
         {
-            calibrationManager.OnCalibrationMessage -= HandleCalibrationMessage;
+            calibrationManager.OnCalibrationMessage  -= HandleCalibrationMessage;
             calibrationManager.OnCalibrationComplete -= HandleCalibrationComplete;
+        }
+
+        if (sensorController != null)
+        {
+            sensorController.OnSensorStatusChanged -= HandleSensorStatus;
         }
 
         Debug.Log("[MASTER] 🛑 VibBeat durduruldu.");

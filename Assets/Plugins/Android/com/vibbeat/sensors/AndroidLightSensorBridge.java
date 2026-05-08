@@ -7,109 +7,141 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import com.unity3d.player.UnityPlayer;
 
+/**
+ * VibBeat Android Işık Sensörü Köprüsü
+ *
+ * Senaryo:
+ *   - Sol el sensörü kapatır → min lux (kalibrasyon 0 noktası)
+ *   - El çekilir, sensör ortam ışığına açılır → max lux (kalibrasyon 1 noktası)
+ *
+ * Raw lux değeri Unity'ye iletilir.
+ * Normalizasyon ve kalibrasyon: CalibrationManager.cs tarafında yapılır.
+ */
 public class AndroidLightSensorBridge implements SensorEventListener
 {
-    // --- Singleton ---
-    private static AndroidLightSensorBridge instance = null;
+    // ─────────────────────────────────────────
+    // SABITLER
+    // ─────────────────────────────────────────
+    private static final String UNITY_OBJECT        = "SensorController";
+    private static final String UNITY_METHOD_LUX    = "OnLuxValueChanged";
+    private static final String UNITY_METHOD_STATUS = "OnSensorStatusChanged";
 
-    // --- Android Sensor ---
-    private SensorManager sensorManager;
-    private Sensor        lightSensor;
-    private float         currentLuxValue = 0f;
-    private boolean       isListening     = false;
-
-    // --- Unity Callback ---
-    private static final String UNITY_OBJECT   = "SensorController";
-    private static final String UNITY_METHOD   = "OnLuxValueChanged";
+    // Exponential Moving Average katsayısı.
+    // 0.25f ≈ 4 örnek gecikmeli yumuşatma — ani el hareketlerini filtreler
+    private static final float SMOOTHING_ALPHA = 0.25f;
 
     // ─────────────────────────────────────────
-    // SINGLETON
+    // SINGLETON — Thread-safe double-checked locking
     // ─────────────────────────────────────────
-    private AndroidLightSensorBridge(Context context)
-    {
-        sensorManager = (SensorManager) context.getSystemService(
-            Context.SENSOR_SERVICE
-        );
-        lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
-
-        if (lightSensor == null)
-        {
-            UnityPlayer.UnitySendMessage(
-                UNITY_OBJECT, 
-                "OnLuxValueChanged", 
-                "ERROR:NO_SENSOR"
-            );
-        }
-    }
+    private static volatile AndroidLightSensorBridge instance = null;
 
     public static AndroidLightSensorBridge getInstance()
     {
         if (instance == null)
         {
-            Context context = UnityPlayer.currentActivity
-                                         .getApplicationContext();
-            instance = new AndroidLightSensorBridge(context);
+            synchronized (AndroidLightSensorBridge.class)
+            {
+                if (instance == null)
+                {
+                    Context ctx = UnityPlayer.currentActivity.getApplicationContext();
+                    instance = new AndroidLightSensorBridge(ctx);
+                }
+            }
         }
         return instance;
     }
 
     // ─────────────────────────────────────────
-    // SENSÖR KONTROLÜ
+    // ALANLAR
     // ─────────────────────────────────────────
+    private final SensorManager sensorManager;
+    private final Sensor        lightSensor;
+
+    private float   rawLux       = 0f;
+    private float   smoothedLux  = 0f;
+    private boolean isListening  = false;
+    private boolean sensorExists = false;
+
+    // ─────────────────────────────────────────
+    // KURUCU
+    // ─────────────────────────────────────────
+    private AndroidLightSensorBridge(Context context)
+    {
+        sensorManager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
+        lightSensor   = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
+        sensorExists  = (lightSensor != null);
+
+        if (!sensorExists)
+            sendStatus("ERROR:NO_LIGHT_SENSOR");
+        else
+            sendStatus("READY");
+    }
+
+    // ─────────────────────────────────────────
+    // DINLEME KONTROLU
+    // ─────────────────────────────────────────
+
+    /**
+     * SENSOR_DELAY_GAME ≈ 20ms — ses gecikmesini minimize eder.
+     * SENSOR_DELAY_UI  ≈ 60ms — müzik uygulaması için çok yavaş olurdu.
+     */
     public void startListening()
     {
-        if (isListening || lightSensor == null) return;
+        if (isListening || !sensorExists) return;
 
-        sensorManager.registerListener(
-            this,
-            lightSensor,
-            SensorManager.SENSOR_DELAY_UI   // ~60ms güncelleme
+        boolean ok = sensorManager.registerListener(
+            this, lightSensor, SensorManager.SENSOR_DELAY_GAME
         );
-        isListening = true;
+
+        isListening = ok;
+        sendStatus(ok ? "LISTENING" : "ERROR:REGISTER_FAILED");
     }
 
     public void stopListening()
     {
         if (!isListening) return;
-
         sensorManager.unregisterListener(this);
         isListening = false;
+        sendStatus("STOPPED");
     }
 
     // ─────────────────────────────────────────
-    // SENSOR EVENT LISTENER
+    // SENSOR CALLBACK
     // ─────────────────────────────────────────
     @Override
     public void onSensorChanged(SensorEvent event)
     {
         if (event.sensor.getType() != Sensor.TYPE_LIGHT) return;
 
-        currentLuxValue = event.values[0];
+        rawLux = event.values[0];
 
-        // Unity'ye gönder
+        // EMA filtresi — ani sıçramaları yumuşatır
+        smoothedLux = SMOOTHING_ALPHA * rawLux + (1f - SMOOTHING_ALPHA) * smoothedLux;
+
+        // Locale.US → ondalık ayracı her zaman nokta
         UnityPlayer.UnitySendMessage(
             UNITY_OBJECT,
-            UNITY_METHOD,
-            String.valueOf(currentLuxValue)
+            UNITY_METHOD_LUX,
+            String.format(java.util.Locale.US, "%.2f", smoothedLux)
         );
     }
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy)
     {
-        // Kullanılmıyor
+        sendStatus("ACCURACY:" + accuracy);
     }
 
     // ─────────────────────────────────────────
-    // GETTER
+    // YARDIMCI
     // ─────────────────────────────────────────
-    public float getCurrentLux()
+    private void sendStatus(String status)
     {
-        return currentLuxValue;
+        UnityPlayer.UnitySendMessage(UNITY_OBJECT, UNITY_METHOD_STATUS, status);
     }
 
-    public boolean isListening()
-    {
-        return isListening;
-    }
+    public float getRawLux()      { return rawLux; }
+    public float getSmoothedLux() { return smoothedLux; }
+    public boolean isListening()  { return isListening; }
+    public boolean hasSensor()    { return sensorExists; }
 }
