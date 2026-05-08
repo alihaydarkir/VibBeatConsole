@@ -4,7 +4,7 @@ using System.Collections;
 public class CalibrationManager : MonoBehaviour
 {
     // --- Bağımlılıklar ---
-    [SerializeField] private SensorController sensorController;
+    private SensorController sensorController;
 
     // --- Kalibrasyon Verileri ---
     private float minLux = 0f;
@@ -23,6 +23,15 @@ public class CalibrationManager : MonoBehaviour
 
     public delegate void OnCalibrationCompleteDelegate();
     public event OnCalibrationCompleteDelegate OnCalibrationComplete;
+
+    private void Awake()
+    {
+        sensorController = FindFirstObjectByType<SensorController>();
+        if (sensorController == null)
+            Debug.LogError("[CALIBRATION] ❌ SensorController sahnede bulunamadı!");
+        else
+            Debug.Log("[CALIBRATION] ✅ SensorController bulundu.");
+    }
 
     private void Start()
     {
