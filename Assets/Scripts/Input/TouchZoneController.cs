@@ -46,6 +46,13 @@ public class TouchZoneController : MonoBehaviour
     public delegate void OnDrumHitDelegate();
     public event OnDrumHitDelegate OnDrumHit;
 
+    private void Awake()
+    {
+        // Debug zone overlay'i Inspector değerinden bağımsız kapalı başlat.
+        // Açmak için Play modunda Inspector'dan true yapabilirsin.
+        debugShowZones = false;
+    }
+
     private void Update()
     {
         // NOT: Editor'da UI butonları (Bootstrap listener'ları) tıklamayı halleder.

@@ -63,6 +63,10 @@ public class VibeBeatBootstrap : MonoBehaviour
         mainConsoleScreen= FindChild(t, "MainConsoleScreen");
         settingsScreen   = FindChild(t, "SettingsScreen");
 
+        // ScreenManager'a ekran referanslarını aktar
+        screenManager?.Init(splashScreen, onboardingScreen, calibrationScreen,
+                            mainConsoleScreen, settingsScreen);
+
         LogScreenStatus();
 
         // Bağlama için hepsini geçici aç
