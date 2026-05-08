@@ -16,7 +16,7 @@ public class SensorController : MonoBehaviour
     // INSPECTOR
     // ─────────────────────────────────────────
     [Header("Debug (Read-Only)")]
-    [SerializeField] private float  debugRawLux      = 0f;
+    [SerializeField] private float  debugRawLux       = 0f;
     [SerializeField] private string debugSensorStatus = "Bekleniyor";
 
     [Header("Editor Simülasyon")]
@@ -34,30 +34,28 @@ public class SensorController : MonoBehaviour
 
     // ─────────────────────────────────────────
     // ÖZEL ALANLAR
+    // AndroidJavaObject her zaman tanımlı — sadece Android'de kullanılır
     // ─────────────────────────────────────────
-    private float currentLux  = 0f;
-    private bool  sensorReady = false;
+    private float             currentLux  = 0f;
+    private bool              sensorReady = false;
+    private AndroidJavaObject bridge      = null;
 
     // ─────────────────────────────────────────
     // BAŞLATMA
     // ─────────────────────────────────────────
     private void Start()
     {
-#if UNITY_ANDROID && !UNITY_EDITOR
-        InitAndroid();
-#else
-        sensorReady       = true;
-        debugSensorStatus = "Editor simülasyon aktif";
-        Debug.Log("[SENSOR] Editor modu — mouse X ile lux simüle ediliyor.");
-#endif
+        if (Application.platform == RuntimePlatform.Android)
+        {
+            InitAndroid();
+        }
+        else
+        {
+            sensorReady       = true;
+            debugSensorStatus = "Editor/PC simülasyon aktif";
+            Debug.Log("[SENSOR] Editor modu — mouse X ile lux simüle ediliyor.");
+        }
     }
-
-// ─────────────────────────────────────────
-// ANDROID BLOĞU — tamamı #if içinde
-// ─────────────────────────────────────────
-#if UNITY_ANDROID && !UNITY_EDITOR
-
-    private AndroidJavaObject bridge = null;
 
     private void InitAndroid()
     {
@@ -79,29 +77,13 @@ public class SensorController : MonoBehaviour
         }
     }
 
-    private void OnApplicationPause(bool paused)
-    {
-        if (bridge == null) return;
-        if (paused)
-            bridge.Call("stopListening");
-        else if (sensorReady)
-            bridge.Call("startListening");
-    }
-
-    private void OnDestroy()
-    {
-        bridge?.Call("stopListening");
-        bridge?.Dispose();
-        bridge = null;
-    }
-
-#endif
-// ─────────────────────────────────────────
-// EDITOR BLOĞU
-// ─────────────────────────────────────────
-#if UNITY_EDITOR
+    // ─────────────────────────────────────────
+    // UPDATE — Editor simülasyonu
+    // ─────────────────────────────────────────
     private void Update()
     {
+        if (Application.platform == RuntimePlatform.Android) return;
+
         float mouseNorm = Input.mousePosition.x / Screen.width;
         float simLux    = mouseNorm * editorMaxSimLux;
 
@@ -112,22 +94,42 @@ public class SensorController : MonoBehaviour
             OnLuxChanged?.Invoke(currentLux);
         }
     }
-#endif
 
     // ─────────────────────────────────────────
-    // JAVA CALLBACK'LERİ — her platformda tanımlı olmalı
-    // (UnitySendMessage string parametreli metodları her zaman public ve erişilebilir ister)
+    // UYGULAMA YAŞAM DÖNGÜSÜ — pil tasarrufu
+    // ─────────────────────────────────────────
+    private void OnApplicationPause(bool paused)
+    {
+        if (bridge == null) return;
+
+        if (paused)
+            bridge.Call("stopListening");
+        else if (sensorReady)
+            bridge.Call("startListening");
+    }
+
+    private void OnDestroy()
+    {
+        if (bridge == null) return;
+        bridge.Call("stopListening");
+        bridge.Dispose();
+        bridge = null;
+    }
+
+    // ─────────────────────────────────────────
+    // JAVA CALLBACK'LERİ
+    // UnitySendMessage bu metodları isimle çağırır — her zaman public olmalı
     // ─────────────────────────────────────────
     public void OnLuxValueChanged(string luxStr)
     {
         if (float.TryParse(
-            luxStr,
-            System.Globalization.NumberStyles.Float,
-            System.Globalization.CultureInfo.InvariantCulture,
-            out float lux))
+                luxStr,
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out float lux))
         {
-            currentLux    = lux;
-            debugRawLux   = lux;
+            currentLux  = lux;
+            debugRawLux = lux;
             OnLuxChanged?.Invoke(currentLux);
         }
         else
