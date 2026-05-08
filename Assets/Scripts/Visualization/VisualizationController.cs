@@ -158,6 +158,10 @@ public class VisualizationController : MonoBehaviour
         if (guitarMuteEffectPrefab != null && guitarWaveRect != null)
             SpawnEffect(guitarMuteEffectPrefab, guitarWaveRect.position);
 
+        // Ripple — gitar bölgesinden
+        if (guitarWaveRect != null)
+            RippleEffect.Instance?.SpawnGuitar(guitarWaveRect.position);
+
         Debug.Log($"[VFX] Gitar mute: {isMuted}");
     }
 
@@ -212,6 +216,14 @@ public class VisualizationController : MonoBehaviour
             SpawnEffect(pianoEffectPrefab, spawnPos);
         }
 
+        // 3. Ripple — o tusun pozisyonundan tum ekrana yayil
+        if (pianoKeyImages != null && keyIndex < pianoKeyImages.Length
+            && pianoKeyImages[keyIndex] != null)
+        {
+            RippleEffect.Instance?.SpawnPiano(
+                pianoKeyImages[keyIndex].transform.position, keyIndex);
+        }
+
         Debug.Log($"[VFX] Piano key animasyonu: {keyIndex}");
     }
 
@@ -254,6 +266,10 @@ public class VisualizationController : MonoBehaviour
         // Cartoon FX
         if (drumEffectPrefab != null && drumPadRect != null)
             SpawnEffect(drumEffectPrefab, drumPadRect.position);
+
+        // Ripple — davul merkezinden 3 halka
+        if (drumPadRect != null)
+            RippleEffect.Instance?.SpawnDrum(drumPadRect.position);
 
         Debug.Log("[VFX] Davul animasyonu!");
     }

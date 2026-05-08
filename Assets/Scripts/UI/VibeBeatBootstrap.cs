@@ -397,7 +397,7 @@ public class VibeBeatBootstrap : MonoBehaviour
         guitarMuted = !guitarMuted;
         Debug.Log($"[BOOTSTRAP] [GITAR] Guitar mute: {guitarMuted}");
         masterController?.SetGuitarMuteFromUI(guitarMuted);
-        AccessibilityManager.Instance?.Speak(guitarMuted ? "Gitar susturuldu" : "Gitar açıldı");
+        AccessibilityManager.Instance?.Speak(guitarMuted ? "Gitar susturuldu" : "Gitar acildi");
     }
 
     // ─────────────────────────────────────────
