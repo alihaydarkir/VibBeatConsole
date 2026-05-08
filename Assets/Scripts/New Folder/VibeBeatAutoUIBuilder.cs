@@ -273,7 +273,7 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
             float kx0 = 0.02f + i * 0.245f;
             float kx1 = kx0 + 0.225f;
             var key = Panel("PianoKey_" + notes[i], pArea.transform,
-                BgCard, kx0, kx1, 0.06f, 0.72f);
+                BgCard, kx0, kx1, 0.08f, 0.98f);
             var kb = key.AddComponent<Button>();
             kb.transition = Selectable.Transition.None;
             // Dikey gösterge çizgisi
@@ -292,7 +292,7 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
         Txt(dArea, "TitleText", "DRUM", 34, DrumMagenta, Anchor.Left,
             0.02f, 0.40f, 0.77f, 0.95f, bold: true);
 
-        var padGO = Panel("DrumPad", dArea.transform, BgCard, 0.02f, 0.98f, 0.06f, 0.72f);
+        var padGO = Panel("DrumPad", dArea.transform, BgCard, 0.00f, 1.00f, 0.00f, 0.75f);
         var padBtn = padGO.AddComponent<Button>();
         padBtn.transition = Selectable.Transition.None;
 
