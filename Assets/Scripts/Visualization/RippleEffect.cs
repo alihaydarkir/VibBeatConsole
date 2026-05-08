@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Rendering;
 using DG.Tweening;
+using System.Collections.Generic;
 
 /// <summary>
 /// VibBeat Ripple (Halka Yayilma) Efekti
@@ -32,7 +34,7 @@ public class RippleEffect : MonoBehaviour
     public static readonly Color ColorGuitar  = new Color(0.00f, 0.94f, 1.00f, 1f);
 
     private RectTransform[] poolRects;
-    private Image[]         poolImages;
+    private CircleImage[]   poolImages;
     private GameObject[]    poolObjects;
     private int poolIndex = 0;
     private RectTransform canvasRect;
@@ -59,7 +61,7 @@ public class RippleEffect : MonoBehaviour
     private void BuildPool()
     {
         poolObjects = new GameObject[poolSize];
-        poolImages  = new Image[poolSize];
+        poolImages  = new CircleImage[poolSize];
         poolRects   = new RectTransform[poolSize];
 
         // Halka nesnelerini DOGRUDAN ANA CANVAS altina koy
@@ -72,15 +74,10 @@ public class RippleEffect : MonoBehaviour
             go.transform.SetParent(canvasTransform, false);
             go.transform.SetAsLastSibling(); // her zaman en uste cizilsin
 
-            var img = go.AddComponent<Image>();
+            // CircleImage: OnPopulateMesh override ile gercek vektor dairesi
+            var img = go.AddComponent<CircleImage>();
             img.color = Color.clear;
             img.raycastTarget = false;
-
-            // Daire sprite — Unity built-in "Knob" sprite kullan
-            // Bu UISprite olup dairesel maske verir
-            img.sprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/Knob.psd");
-            img.type   = Image.Type.Simple;
-            img.preserveAspect = true;
 
             var rt = go.GetComponent<RectTransform>();
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
