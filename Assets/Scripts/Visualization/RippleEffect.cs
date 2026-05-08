@@ -3,103 +3,89 @@ using UnityEngine.UI;
 using DG.Tweening;
 
 /// <summary>
-/// VibBeat Ripple (Halka Yayılma) Efekti
-///
-/// İBE — Feedback + Multimodality:
-///   Kullanıcının dokunduğu noktadan tüm ekrana yayılan görsel dalga.
-///   Her enstrüman farklı renk ve hız kullanır — kullanıcı hangisine
-///   bastığını görmeden de anlayabilir (renk körü / görme engelli desteği
-///   için haptik ile birleşir).
-///
-/// Kullanım:
-///   RippleEffect.Instance.Spawn(worldPosition, color, duration);
-///
-/// Sahnede bir Canvas child'ı olarak çalışır.
+/// VibBeat Ripple (Halka Yayilma) Efekti
+/// Herhangi bir UI elemaninin pozisyonundan tum ekrana yayilan halka uretir.
+/// Canvas Overlay modunda da dogru calisir.
 /// </summary>
 public class RippleEffect : MonoBehaviour
 {
-    // ─────────────────────────────────────────
-    // SINGLETON
-    // ─────────────────────────────────────────
     public static RippleEffect Instance { get; private set; }
 
     private void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
+        Debug.Log("[RIPPLE] Awake - Instance set.");
     }
 
-    // ─────────────────────────────────────────
-    // INSPECTOR
-    // ─────────────────────────────────────────
     [Header("Ripple Ayarlari")]
-    [Tooltip("Halkalar bu Canvas altinda olusturulur — en ust Canvas olmali")]
     [SerializeField] private Canvas targetCanvas;
+    [SerializeField] private int   poolSize     = 10;
+    [SerializeField] private float ringThickness = 8f;
 
-    [Tooltip("Kac halka ayni anda aktif olabilir (pool boyutu)")]
-    [SerializeField] private int poolSize = 8;
+    // Renk paleti
+    public static readonly Color ColorPianoDo = new Color(1.00f, 0.65f, 0.00f, 1f);
+    public static readonly Color ColorPianoRe = new Color(0.80f, 0.90f, 0.00f, 1f);
+    public static readonly Color ColorPianoMi = new Color(0.00f, 0.85f, 0.80f, 1f);
+    public static readonly Color ColorPianoFa = new Color(0.85f, 0.30f, 1.00f, 1f);
+    public static readonly Color ColorDrum    = new Color(1.00f, 0.10f, 0.68f, 1f);
+    public static readonly Color ColorGuitar  = new Color(0.00f, 0.94f, 1.00f, 1f);
 
-    [Tooltip("Halka kalinligi (px)")]
-    [SerializeField] private float ringThickness = 6f;
-
-    // ─────────────────────────────────────────
-    // RENK PALETİ — her enstrüman için
-    // ─────────────────────────────────────────
-    public static readonly Color ColorPianoDo  = new Color(1.00f, 0.65f, 0.00f, 1f); // Turuncu
-    public static readonly Color ColorPianoRe  = new Color(0.80f, 0.90f, 0.00f, 1f); // Sarı
-    public static readonly Color ColorPianoMi  = new Color(0.00f, 0.85f, 0.80f, 1f); // Turkuaz
-    public static readonly Color ColorPianoFa  = new Color(0.85f, 0.30f, 1.00f, 1f); // Mor
-    public static readonly Color ColorDrum     = new Color(1.00f, 0.10f, 0.68f, 1f); // Magenta
-    public static readonly Color ColorGuitar   = new Color(0.00f, 0.94f, 1.00f, 1f); // Cyan
-    public static readonly Color ColorCalib    = new Color(1.00f, 1.00f, 1.00f, 1f); // Beyaz
-
-    // ─────────────────────────────────────────
-    // POOL
-    // ─────────────────────────────────────────
-    private GameObject[] pool;
-    private Image[]      poolImages;
     private RectTransform[] poolRects;
+    private Image[]         poolImages;
+    private GameObject[]    poolObjects;
     private int poolIndex = 0;
+    private RectTransform canvasRect;
 
-    // ─────────────────────────────────────────
-    // BAŞLATMA
-    // ─────────────────────────────────────────
     private void Start()
     {
-        // Canvas otomatik bul (atanmamışsa)
+        // Canvas otomatik bul
+        if (targetCanvas == null)
+            targetCanvas = GetComponentInParent<Canvas>();
         if (targetCanvas == null)
             targetCanvas = FindFirstObjectByType<Canvas>();
 
+        if (targetCanvas == null)
+        {
+            Debug.LogError("[RIPPLE] Canvas bulunamadi!");
+            return;
+        }
+
+        canvasRect = targetCanvas.GetComponent<RectTransform>();
         BuildPool();
-        Debug.Log($"[RIPPLE] [OK] {poolSize} halka havuzu hazir.");
+        Debug.Log($"[RIPPLE] [OK] {poolSize} halka havuzu hazir. Canvas: {targetCanvas.name}");
     }
 
     private void BuildPool()
     {
-        pool       = new GameObject[poolSize];
-        poolImages = new Image[poolSize];
-        poolRects  = new RectTransform[poolSize];
+        poolObjects = new GameObject[poolSize];
+        poolImages  = new Image[poolSize];
+        poolRects   = new RectTransform[poolSize];
+
+        // Halka nesnelerini DOGRUDAN ANA CANVAS altina koy
+        // Bu sayede hicbir parent clip tarafindan kirpilmaz
+        Transform canvasTransform = targetCanvas.transform;
 
         for (int i = 0; i < poolSize; i++)
         {
             var go = new GameObject($"Ripple_{i}");
-            go.transform.SetParent(targetCanvas.transform, false);
+            go.transform.SetParent(canvasTransform, false);
+            go.transform.SetAsLastSibling(); // her zaman en uste cizilsin
 
-            // Image bileşeni — sprite olmadan sadece renk
             var img = go.AddComponent<Image>();
             img.color = Color.clear;
+            img.raycastTarget = false; // tiklama engellemez
 
-            // RectTransform başlangıçta sıfır boyut
             var rt = go.GetComponent<RectTransform>();
-            rt.sizeDelta = Vector2.zero;
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot     = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = Vector2.zero;
 
             go.SetActive(false);
 
-            pool[i]       = go;
-            poolImages[i] = img;
-            poolRects[i]  = rt;
+            poolObjects[i] = go;
+            poolImages[i]  = img;
+            poolRects[i]   = rt;
         }
     }
 
@@ -108,113 +94,104 @@ public class RippleEffect : MonoBehaviour
     // ─────────────────────────────────────────
 
     /// <summary>
-    /// Verilen dünya pozisyonundan tüm ekrana yayılan halka spawn eder.
+    /// Verilen EKRAN koordinatindan (Input.mousePosition gibi) ripple baslatir.
+    /// UI elemanin Screen pozisyonunu kullanir.
     /// </summary>
-    /// <param name="worldPos">Butonun dünya koordinatı (transform.position)</param>
-    /// <param name="color">Halka rengi</param>
-    /// <param name="duration">Yayılma süresi (saniye)</param>
-    /// <param name="ringCount">Kaç halka art arda gelsin</param>
-    public void Spawn(Vector3 worldPos, Color color,
-                      float duration = 0.7f, int ringCount = 2)
+    public void SpawnFromScreenPos(Vector2 screenPos, Color color,
+                                   float duration = 0.7f, int ringCount = 2)
     {
+        if (canvasRect == null) return;
+
+        Vector2 localPos;
+        Camera cam = (targetCanvas.renderMode == RenderMode.ScreenSpaceOverlay)
+            ? null : Camera.main;
+
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            canvasRect, screenPos, cam, out localPos);
+
         for (int r = 0; r < ringCount; r++)
-        {
-            float delay = r * (duration * 0.35f);
-            SpawnSingle(worldPos, color, duration, delay);
-        }
+            SpawnSingle(localPos, color, duration, r * duration * 0.35f);
+    }
+
+    /// <summary>
+    /// Verilen WORLD pozisyonundan ripple baslatir (3D world coords).
+    /// </summary>
+    public void SpawnFromWorld(Vector3 worldPos, Color color,
+                               float duration = 0.7f, int ringCount = 2)
+    {
+        if (canvasRect == null) return;
+
+        Camera cam = (targetCanvas.renderMode == RenderMode.ScreenSpaceOverlay)
+            ? null : Camera.main;
+
+        Vector2 screenPos = RectTransformUtility.WorldToScreenPoint(cam, worldPos);
+        SpawnFromScreenPos(screenPos, color, duration, ringCount);
+    }
+
+    // Enstruman kisayollari
+    public void SpawnPiano(Vector3 worldPos, int keyIndex)
+    {
+        Color[] c = { ColorPianoDo, ColorPianoRe, ColorPianoMi, ColorPianoFa };
+        Color col = (keyIndex >= 0 && keyIndex < c.Length) ? c[keyIndex] : ColorPianoDo;
+        SpawnFromWorld(worldPos, col, 0.65f, 2);
+    }
+
+    public void SpawnDrum(Vector3 worldPos)
+    {
+        SpawnFromWorld(worldPos, ColorDrum, 0.5f, 3);
+    }
+
+    public void SpawnGuitar(Vector3 worldPos)
+    {
+        SpawnFromWorld(worldPos, ColorGuitar, 1.1f, 1);
     }
 
     // ─────────────────────────────────────────
-    // ENSTRÜMAN KISAYOLLARI
+    // CORE
     // ─────────────────────────────────────────
-
-    public void SpawnPiano(Vector3 pos, int keyIndex)
+    private void SpawnSingle(Vector2 localPos, Color color, float duration, float delay)
     {
-        Color[] colors = { ColorPianoDo, ColorPianoRe, ColorPianoMi, ColorPianoFa };
-        Color c = (keyIndex >= 0 && keyIndex < colors.Length)
-            ? colors[keyIndex] : ColorPianoDo;
+        if (poolObjects == null) return;
 
-        // Piyano: 2 halka, hızlı
-        Spawn(pos, c, duration: 0.65f, ringCount: 2);
-    }
-
-    public void SpawnDrum(Vector3 pos)
-    {
-        // Davul: 3 halka, hızlı ve büyük
-        Spawn(pos, ColorDrum, duration: 0.55f, ringCount: 3);
-    }
-
-    public void SpawnGuitar(Vector3 pos)
-    {
-        // Gitar: tek halka, yavaş ve geniş
-        Spawn(pos, ColorGuitar, duration: 1.2f, ringCount: 1);
-    }
-
-    public void SpawnCalibration(Vector3 pos)
-    {
-        Spawn(pos, ColorCalib, duration: 0.9f, ringCount: 2);
-    }
-
-    // ─────────────────────────────────────────
-    // SPAWN CORE
-    // ─────────────────────────────────────────
-    private void SpawnSingle(Vector3 worldPos, Color color,
-                             float duration, float delay)
-    {
-        // Bir sonraki pool slotunu al (döngüsel)
         int idx = poolIndex;
         poolIndex = (poolIndex + 1) % poolSize;
 
-        var go  = pool[idx];
+        var go  = poolObjects[idx];
         var img = poolImages[idx];
         var rt  = poolRects[idx];
 
-        // Ekran pozisyonunu Canvas local koordinatına çevir
-        Vector2 localPos;
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            targetCanvas.GetComponent<RectTransform>(),
-            RectTransformUtility.WorldToScreenPoint(Camera.main, worldPos),
-            targetCanvas.worldCamera,
-            out localPos
-        );
-        rt.anchoredPosition = localPos;
-
-        // Ekranın köşegeni = halkanın ulaşması gereken maksimum çap
-        float screenDiag = Mathf.Sqrt(
-            Screen.width  * Screen.width +
-            Screen.height * Screen.height
-        );
-        // Canvas scale'ini hesaba kat
-        float canvasScale = targetCanvas.GetComponent<RectTransform>().localScale.x;
-        float maxSize = (screenDiag / canvasScale) * 2.2f;  // ekrandan taşsın
-
-        // Halka efekti: ince kenarlı daire — OutlineWidth trick
-        // Unity'de halka = tam opak circle + içi boş değil
-        // DOTween ile: başlangıçta küçük tam dolu → büyürken alpha → 0
-        // Daha iyi halka görünümü için: scale'i kullan, outline image yok
-        // En temiz yol: Image alpha'sını başta tam aç, büyürken kapat
-        rt.sizeDelta = new Vector2(ringThickness * 4f, ringThickness * 4f);
-        img.color    = Color.clear;
-        go.SetActive(true);
-
-        // Eski tween'leri temizle
+        // Onceki tween temizle
         DOTween.Kill(rt);
         DOTween.Kill(img);
 
-        // Sequence: delay → büyü + soluk
+        // Baslangic pozisyonu ve boyutu ayarla
+        rt.anchoredPosition = localPos;
+        rt.sizeDelta = Vector2.zero;
+        img.color = Color.clear;
+        go.SetActive(true);
+        go.transform.SetAsLastSibling(); // her zaman en uste
+
+        // Ekranin kosegeni — halkaning ulasacagi maksimum boyut
+        float screenDiag = Mathf.Sqrt(
+            Screen.width  * (float)Screen.width +
+            Screen.height * (float)Screen.height
+        ) / targetCanvas.scaleFactor;
+        float maxSize = screenDiag * 2.5f; // ekrandan kesinlikle tasin
+
         Sequence seq = DOTween.Sequence();
         seq.AppendInterval(delay);
         seq.AppendCallback(() =>
         {
-            rt.sizeDelta = new Vector2(ringThickness * 4f, ringThickness * 4f);
-            img.color    = new Color(color.r, color.g, color.b, 0.85f);
+            rt.sizeDelta = new Vector2(ringThickness, ringThickness);
+            img.color    = new Color(color.r, color.g, color.b, 0.9f);
         });
         seq.Append(
             rt.DOSizeDelta(new Vector2(maxSize, maxSize), duration)
               .SetEase(Ease.OutCubic)
         );
         seq.Join(
-            img.DOFade(0f, duration)
+            img.DOFade(0f, duration * 0.85f)
+               .SetDelay(duration * 0.15f)
                .SetEase(Ease.InQuad)
         );
         seq.AppendCallback(() =>
