@@ -31,7 +31,7 @@ public class SensorController : MonoBehaviour
     public event LuxChangedDelegate OnLuxChanged;
 
     public delegate void SensorStatusDelegate(string status);
-    public event SensorStatusDelegate OnSensorStatusChanged;
+    public event SensorStatusDelegate OnSensorStatus;
 
     // ─────────────────────────────────────────
     // ÖZEL ALANLAR
@@ -142,7 +142,7 @@ public class SensorController : MonoBehaviour
             Debug.LogError("[SENSOR] ❌ Cihazda ışık sensörü bulunamadı!");
         }
 
-        OnSensorStatusChanged?.Invoke(status);
+        OnSensorStatus?.Invoke(status);
     }
 
     // ─────────────────────────────────────────

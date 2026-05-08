@@ -75,7 +75,7 @@ public class VibBeatMasterController : MonoBehaviour
 
         if (sensorController != null)
         {
-            sensorController.OnSensorStatusChanged += HandleSensorStatus;
+            sensorController.OnSensorStatus += HandleSensorStatus;
         }
 
         Debug.Log("[MASTER] ✅ Eventler bağlandı.");
@@ -206,7 +206,7 @@ public class VibBeatMasterController : MonoBehaviour
 
         if (sensorController != null)
         {
-            sensorController.OnSensorStatusChanged -= HandleSensorStatus;
+            sensorController.OnSensorStatus -= HandleSensorStatus;
         }
 
         Debug.Log("[MASTER] 🛑 VibBeat durduruldu.");
