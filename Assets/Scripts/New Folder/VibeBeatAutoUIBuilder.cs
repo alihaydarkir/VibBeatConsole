@@ -42,9 +42,13 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
         if (!canvas.GetComponent<VibeBeatBootstrap>())
             canvas.AddComponent<VibeBeatBootstrap>();
 
-        // RippleEffect Canvas'a otomatik ekle (Inspector'dan atama gerek yok)
+        // RippleEffect Canvas'a otomatik ekle
         var ripple = canvas.GetComponent<RippleEffect>()
                   ?? canvas.AddComponent<RippleEffect>();
+
+        // WaterDropEffect Canvas'a otomatik ekle
+        if (canvas.GetComponent<WaterDropEffect>() == null)
+            canvas.AddComponent<WaterDropEffect>();
 
         // EffectIntensityController VibBeat Systems'e ekle
         var effectCtrl = FindFirstObjectByType<EffectIntensityController>();

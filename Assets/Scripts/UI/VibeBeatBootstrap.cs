@@ -177,18 +177,9 @@ public class VibeBeatBootstrap : MonoBehaviour
                         else
                             Debug.LogError("[BOOTSTRAP] masterController NULL — piyano çalınamadı!");
 
-                        // Ripple — her tuş kendi renginde
-                        Color[] pianoRippleColors = {
-                            RippleEffect.ColorPianoDo,
-                            RippleEffect.ColorPianoRe,
-                            RippleEffect.ColorPianoMi,
-                            RippleEffect.ColorPianoFa
-                        };
-                        Color pc = (idx >= 0 && idx < pianoRippleColors.Length)
-                            ? pianoRippleColors[idx] : RippleEffect.ColorPianoDo;
-                        RippleEffect.Instance?.SpawnFromScreenPos(
-                            RectTransformUtility.WorldToScreenPoint(Camera.main,
-                                key.transform.position), pc, interrupt: false);
+                        // WaterDrop — tus uzerinde su damlasi
+                        WaterDropEffect.Instance?.SpawnPianoDrop(
+                            key.transform.position, idx);
                     });
                     bound++;
                 }
@@ -214,11 +205,9 @@ public class VibeBeatBootstrap : MonoBehaviour
                     else
                         Debug.LogError("[BOOTSTRAP] masterController NULL — davul çalınamadı!");
 
-                    // Ripple — magenta, 3 halka
-                    RippleEffect.Instance?.SpawnFromScreenPos(
-                        RectTransformUtility.WorldToScreenPoint(Camera.main,
-                            padBtn.transform.position),
-                        RippleEffect.ColorDrum, interrupt: false);
+                    // WaterDrop — davul eliptik damla
+                    WaterDropEffect.Instance?.SpawnDrumDrop(
+                        padBtn.transform.position);
                 });
                 Debug.Log("[BOOTSTRAP] [OK] DrumPad bağlandı.");
             }
