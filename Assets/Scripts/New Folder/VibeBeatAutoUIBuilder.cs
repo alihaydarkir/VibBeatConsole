@@ -801,6 +801,96 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
 #endif
     }
 
+
+    private GameObject SoundStudioScreen(Transform parent)
+    {
+        var root = FullScreen("SoundStudioScreen", parent, BgDeep);
+
+        // TopBar
+        var topBar = Panel("TopBar", root.transform, Hex("#060C16"), 0f,1f, 0.905f,1f);
+        Txt(topBar, "Title", "SES STUDYOSU", 26, Hex("#FF9500"),
+            Anchor.Center, 0.15f, 0.85f, 0.1f, 0.9f, bold:true);
+        var backBtn = Panel("BackToMainButton", topBar.transform, Color.clear,
+            0.02f, 0.14f, 0.05f, 0.95f);
+        backBtn.AddComponent<Button>().transition = Selectable.Transition.None;
+        Txt(backBtn, "Icon", "<  Geri", 20, TextGray, Anchor.Left, 0.05f,1f,0.1f,0.9f);
+
+        // ── GİTAR ──────────────────────────────────────────────────────────
+        var gSection = Panel("GuitarSection", root.transform, BgSurface,
+            0.02f, 0.98f, 0.72f, 0.90f);
+        Txt(gSection, "Label", "GITAR", 22, GuitarCyan,
+            Anchor.Left, 0.01f, 0.22f, 0.1f, 0.9f, bold:true);
+        string[] gNames = {"Yakin","Orta","Uzak","Cok Uzak"};
+        for (int i = 0; i < 4; i++)
+        {
+            float bx0 = 0.23f + i * 0.19f;
+            float bx1 = bx0 + 0.17f;
+            var btn = Panel($"GuitarBtn_{i}", gSection.transform,
+                i == 0 ? GuitarCyan : Passive, bx0, bx1, 0.1f, 0.9f);
+            btn.AddComponent<Button>().transition = Selectable.Transition.None;
+            Txt(btn, "Label", gNames[i], 17,
+                i == 0 ? BgDeep : TextGray, Anchor.Center, 0f,1f,0f,1f);
+        }
+
+        // ── PİYANO ─────────────────────────────────────────────────────────
+        var pSection = Panel("PianoSection", root.transform, BgSurface,
+            0.02f, 0.98f, 0.38f, 0.70f);
+        Txt(pSection, "PianoTitle", "PIYANO NOTLARI", 22, PianoOrange,
+            Anchor.Left, 0.01f, 0.45f, 0.84f, 0.98f, bold:true);
+
+        string[] noteSlots = {"Do","Re","Mi","Fa"};
+        string[] noteClips = {"C4","D4","E4","F4"};
+        Color[]  noteClrs  = {
+            Hex("#FF9500"), Hex("#FFD700"), Hex("#00BFFF"), Hex("#C060FF")
+        };
+
+        for (int slot = 0; slot < 4; slot++)
+        {
+            float rowY1 = 0.80f - slot * 0.20f;
+            float rowY0 = rowY1 - 0.18f;
+
+            Txt(pSection, $"NoteLabel_{slot}", noteSlots[slot], 19,
+                noteClrs[slot], Anchor.Left, 0.01f,0.18f, rowY0, rowY1, bold:true);
+
+            for (int ci = 0; ci < 4; ci++)
+            {
+                float bx0 = 0.19f + ci * 0.205f;
+                float bx1 = bx0 + 0.19f;
+                bool active = ci == slot;
+                var btn = Panel($"PianoBtn_{slot}_{ci}", pSection.transform,
+                    active ? noteClrs[slot] : Passive,
+                    bx0, bx1, rowY0 + 0.01f, rowY1 - 0.01f);
+                btn.AddComponent<Button>().transition = Selectable.Transition.None;
+                Txt(btn, "Label", noteClips[ci], 17,
+                    active ? BgDeep : TextGray, Anchor.Center, 0f,1f,0f,1f);
+            }
+        }
+
+        // ── DAVUL ──────────────────────────────────────────────────────────
+        var dSection = Panel("DrumSection", root.transform, BgSurface,
+            0.02f, 0.98f, 0.18f, 0.36f);
+        Txt(dSection, "Label", "DAVUL", 22, DrumMagenta,
+            Anchor.Left, 0.01f, 0.22f, 0.1f, 0.9f, bold:true);
+        string[] dNames = {"Kick"};
+        for (int i = 0; i < dNames.Length; i++)
+        {
+            float bx0 = 0.23f + i * 0.22f;
+            float bx1 = bx0 + 0.20f;
+            var btn = Panel($"DrumBtn_{i}", dSection.transform,
+                i == 0 ? DrumMagenta : Passive, bx0, bx1, 0.12f, 0.88f);
+            btn.AddComponent<Button>().transition = Selectable.Transition.None;
+            Txt(btn, "Label", dNames[i], 18,
+                i == 0 ? BgDeep : TextGray, Anchor.Center, 0f,1f,0f,1f);
+        }
+
+        // ── KAYDET BUTONU ──────────────────────────────────────────────────
+        var applyBtn = GlowBtn(root.transform, "ApplyButton",
+            "UYGULA ve KAYDET", GuitarCyan, 0.20f, 0.80f, 0.03f, 0.15f);
+
+        root.SetActive(false);
+        return root;
+    }
+
     private static Color Hex(string h)
     {
         ColorUtility.TryParseHtmlString(h, out var c); return c;
