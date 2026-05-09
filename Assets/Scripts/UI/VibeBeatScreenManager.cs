@@ -1,14 +1,10 @@
 using UnityEngine;
 using UnityEngine.UI;
 using DG.Tweening;
-using System.Collections;
 
 /// <summary>
 /// Ekran geçişlerini yönetir.
-/// DOTween ile fade + hafif slide animasyonu kullanır.
-/// MainConsole → Settings: sağdan kayar
-/// Settings → MainConsole: soldan kayar
-/// Diğer geçişler: fade (karartıp açılır)
+/// DOTween ile fade + slide animasyonu.
 /// </summary>
 public class VibeBeatScreenManager : MonoBehaviour
 {
@@ -19,42 +15,17 @@ public class VibeBeatScreenManager : MonoBehaviour
     [HideInInspector] public GameObject settingsScreen;
 
     [Header("Geçiş Ayarları")]
-    [Tooltip("Fade süresi (saniye)")]
-    [SerializeField] private float fadeDuration  = 0.35f;
-    [Tooltip("Slide mesafesi (piksel) — sağ/sol kayma")]
-    [SerializeField] private float slideDistance = 400f;
-    [Tooltip("Geçiş sırasında tüm ekranı karartacak overlay")]
-    private Image overlayImage;
+    [SerializeField] private float fadeDuration  = 0.3f;
+    [SerializeField] private float slideDistance = 350f;
 
-    private bool initialized  = false;
-    private bool transitioning = false;
+    private Image   overlayImage;
+    private bool    initialized   = false;
+    private bool    transitioning = false;
+    private bool    overlayReady  = false;
 
     // ─────────────────────────────────────────
-    // BAŞLATMA
+    // INIT
     // ─────────────────────────────────────────
-    private void Awake()
-    {
-        CreateOverlay();
-    }
-
-    private void CreateOverlay()
-    {
-        // Canvas'ın en üstüne siyah overlay ekle — geçişlerde kullanılır
-        var go = new GameObject("TransitionOverlay");
-        go.transform.SetParent(transform, false);
-
-        overlayImage = go.AddComponent<Image>();
-        overlayImage.color = new Color(0f, 0f, 0f, 0f);
-        overlayImage.raycastTarget = false;
-
-        var rt = go.GetComponent<RectTransform>();
-        rt.anchorMin = Vector2.zero;
-        rt.anchorMax = Vector2.one;
-        rt.offsetMin = rt.offsetMax = Vector2.zero;
-
-        go.transform.SetAsLastSibling(); // her zaman en üstte
-    }
-
     public void Init(
         GameObject splash, GameObject onboard, GameObject calib,
         GameObject main,   GameObject settings)
@@ -66,11 +37,31 @@ public class VibeBeatScreenManager : MonoBehaviour
         settingsScreen    = settings;
         initialized       = true;
 
-        // Overlay en üstte kalsın
-        if (overlayImage != null)
-            overlayImage.transform.SetAsLastSibling();
+        // Overlay'i burada yarat — Init'ten sonra Canvas hazır
+        if (!overlayReady)
+            CreateOverlay();
 
-        Debug.Log($"[SCREEN_MGR] [OK] Init tamamlandı.");
+        Debug.Log("[SCREEN_MGR] [OK] Init tamamlandı.");
+    }
+
+    private void CreateOverlay()
+    {
+        var go  = new GameObject("TransitionOverlay");
+        go.transform.SetParent(transform, false);
+
+        overlayImage              = go.AddComponent<Image>();
+        overlayImage.color        = Color.clear;  // başlangıçta tamamen şeffaf
+        overlayImage.raycastTarget = false;
+
+        var rt       = go.GetComponent<RectTransform>();
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = rt.offsetMax = Vector2.zero;
+
+        go.transform.SetAsLastSibling();
+        overlayReady = true;
+
+        Debug.Log("[SCREEN_MGR] Overlay yaratıldı.");
     }
 
     // ─────────────────────────────────────────
@@ -79,129 +70,146 @@ public class VibeBeatScreenManager : MonoBehaviour
     public void ShowSplash()
     {
         if (!CheckInit()) return;
-        FadeTransition(splashScreen, "VibBeat Console. Başlamak için ekrana dokunun.");
+        DoFade(splashScreen, "VibBeat Console. Başlamak için ekrana dokunun.");
     }
 
     public void ShowOnboarding()
     {
         if (!CheckInit()) return;
-        SlideTransition(onboardingScreen, fromRight: true,
+        DoSlide(onboardingScreen, fromRight: true,
             "Nasıl kullanılır? Üç bölge var: Gitar, Piyano ve Davul.");
     }
 
     public void ShowCalibration()
     {
         if (!CheckInit()) return;
-        FadeTransition(calibrationScreen,
+        DoFade(calibrationScreen,
             "Kalibrasyon. Sol elinizi telefon ışık sensörünün üzerine kapatın.");
     }
 
     public void ShowMainConsole()
     {
         if (!CheckInit()) return;
-        // Settings'ten ana ekrana dönüş → soldan kayar
         bool fromSettings = settingsScreen != null && settingsScreen.activeSelf;
         if (fromSettings)
-            SlideTransition(mainConsoleScreen, fromRight: false,
+            DoSlide(mainConsoleScreen, fromRight: false,
                 "Müzik konsolu. Sol bölge gitar, sağ üst piyano, sağ alt davul.");
         else
-            FadeTransition(mainConsoleScreen,
+            DoFade(mainConsoleScreen,
                 "Müzik konsolu. Sol bölge gitar, sağ üst piyano, sağ alt davul.");
     }
 
     public void ShowSettings()
     {
         if (!CheckInit()) return;
-        // Ana ekrandan settings → sağdan kayar
-        SlideTransition(settingsScreen, fromRight: true, "Ayarlar.");
+        DoSlide(settingsScreen, fromRight: true, "Ayarlar.");
     }
 
     // ─────────────────────────────────────────
-    // ANİMASYON METODLARI
+    // FADE — siyah overlay ile
     // ─────────────────────────────────────────
-
-    /// <summary>
-    /// Siyah overlay fade out → yeni ekran → overlay fade in.
-    /// Genel geçiş için kullanılır.
-    /// </summary>
-    private void FadeTransition(GameObject target, string announcement)
+    private void DoFade(GameObject target, string speech)
     {
-        if (transitioning) { QuickSwitch(target, announcement); return; }
+        if (target == null) return;
+
+        // Geçiş sırasında tekrar basılırsa anında geç
+        if (transitioning)
+        {
+            Instant(target, speech);
+            return;
+        }
+
+        // Overlay yoksa (olmamalı ama güvenlik) anında geç
+        if (overlayImage == null)
+        {
+            Instant(target, speech);
+            return;
+        }
+
         transitioning = true;
-
-        Debug.Log($"[SCREEN_MGR] → {target?.name} (fade)");
-
-        // Overlay karart
         overlayImage.raycastTarget = true;
-        overlayImage.DOFade(1f, fadeDuration * 0.5f)
+        overlayImage.color = Color.clear;
+
+        Debug.Log($"[SCREEN_MGR] → {target.name} (fade)");
+
+        overlayImage.DOFade(1f, fadeDuration * 0.4f)
             .SetEase(Ease.InQuad)
             .OnComplete(() =>
             {
-                // Ekranı değiştir
                 ShowOnly(target);
 
-                // Overlay aç
-                overlayImage.DOFade(0f, fadeDuration * 0.7f)
+                overlayImage.DOFade(0f, fadeDuration * 0.6f)
                     .SetEase(Ease.OutQuad)
                     .OnComplete(() =>
                     {
                         overlayImage.raycastTarget = false;
                         transitioning = false;
-                        AccessibilityManager.Instance?.AnnounceScreenChange(announcement);
+                        AccessibilityManager.Instance?.AnnounceScreenChange(speech);
                     });
             });
     }
 
-    /// <summary>
-    /// Yeni ekran sağdan veya soldan kayarak girer.
-    /// Settings↔MainConsole geçişleri için kullanılır.
-    /// </summary>
-    private void SlideTransition(GameObject target, bool fromRight, string announcement)
+    // ─────────────────────────────────────────
+    // SLIDE — sağdan veya soldan kayma
+    // ─────────────────────────────────────────
+    private void DoSlide(GameObject target, bool fromRight, string speech)
     {
-        if (transitioning) { QuickSwitch(target, announcement); return; }
+        if (target == null) return;
+
+        if (transitioning)
+        {
+            Instant(target, speech);
+            return;
+        }
+
+        var targetRT = target.GetComponent<RectTransform>();
+        if (targetRT == null)
+        {
+            DoFade(target, speech);
+            return;
+        }
+
         transitioning = true;
+        Debug.Log($"[SCREEN_MGR] → {target.name} (slide {(fromRight ? "sağ" : "sol")})");
 
-        Debug.Log($"[SCREEN_MGR] → {target?.name} (slide {(fromRight ? "sağdan" : "soldan")})");
-
-        // Hedef ekranı pozisyonla
-        var targetRT = target?.GetComponent<RectTransform>();
-        if (targetRT == null) { FadeTransition(target, announcement); return; }
-
-        float screenW   = Screen.width;
-        float startX    = fromRight ? slideDistance : -slideDistance;
-
+        // Önce ekranı göster, sonra pozisyonla
         ShowOnly(target);
+        float startX = fromRight ? slideDistance : -slideDistance;
         targetRT.anchoredPosition = new Vector2(startX, 0f);
 
-        // Hafif fade ile birlikte slide
-        var canvasGroup = target.GetComponent<CanvasGroup>()
-                       ?? target.AddComponent<CanvasGroup>();
-        canvasGroup.alpha = 0.3f;
+        // CanvasGroup ile fade de ekle
+        var cg = target.GetComponent<CanvasGroup>() ?? target.AddComponent<CanvasGroup>();
+        cg.alpha = 0f;
 
-        overlayImage.raycastTarget = true;
+        if (overlayImage != null)
+            overlayImage.raycastTarget = true;
 
         Sequence seq = DOTween.Sequence();
-        seq.Append(targetRT.DOAnchorPosX(0f, fadeDuration)
-                            .SetEase(Ease.OutCubic));
-        seq.Join(canvasGroup.DOFade(1f, fadeDuration)
-                             .SetEase(Ease.OutQuad));
+        seq.Append(targetRT.DOAnchorPosX(0f, fadeDuration).SetEase(Ease.OutCubic));
+        seq.Join(cg.DOFade(1f, fadeDuration * 0.8f).SetEase(Ease.OutQuad));
         seq.OnComplete(() =>
         {
-            overlayImage.raycastTarget = false;
+            if (overlayImage != null)
+                overlayImage.raycastTarget = false;
             transitioning = false;
-            AccessibilityManager.Instance?.AnnounceScreenChange(announcement);
+            AccessibilityManager.Instance?.AnnounceScreenChange(speech);
         });
     }
 
-    /// <summary>Geçiş devam ederken çağrılırsa anında değiş.</summary>
-    private void QuickSwitch(GameObject target, string announcement)
+    // ─────────────────────────────────────────
+    // ANINDA GEÇİŞ (güvenlik fallback)
+    // ─────────────────────────────────────────
+    private void Instant(GameObject target, string speech)
     {
-        DOTween.Kill(overlayImage);
-        overlayImage.color = new Color(0f, 0f, 0f, 0f);
-        overlayImage.raycastTarget = false;
+        if (overlayImage != null)
+        {
+            DOTween.Kill(overlayImage);
+            overlayImage.color = Color.clear;
+            overlayImage.raycastTarget = false;
+        }
         ShowOnly(target);
         transitioning = false;
-        Debug.Log($"[SCREEN_MGR] → {target?.name} (hızlı)");
+        Debug.Log($"[SCREEN_MGR] → {target?.name} (aninda)");
     }
 
     // ─────────────────────────────────────────
