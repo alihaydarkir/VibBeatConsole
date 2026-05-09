@@ -434,7 +434,31 @@ public class VibeBeatBootstrap : MonoBehaviour
         if (btn == null) { Debug.LogWarning($"[BOOTSTRAP] '{childName}' üzerinde Button component yok!"); return; }
         btn.onClick.RemoveAllListeners();
         btn.onClick.AddListener(action);
-        Debug.Log($"[BOOTSTRAP] [OK] '{childName}' butonu bağlandı.");
+
+        // Her butona otomatik ripple — butonun kendi pozisyonundan yayilir
+        Transform finalChildT = childT;
+        btn.onClick.AddListener(() =>
+        {
+            Color rippleColor = RippleEffect.ColorCalib; // varsayilan: beyaz
+
+            // Butona gore renk sec
+            if (childName.Contains("Start") || childName.Contains("Continue"))
+                rippleColor = RippleEffect.ColorGuitar;
+            else if (childName.Contains("Settings") || childName.Contains("Back"))
+                rippleColor = new Color(0.7f, 0.4f, 1f, 1f);
+            else if (childName.Contains("Calibr") || childName.Contains("Retry") || childName.Contains("Recal"))
+                rippleColor = RippleEffect.ColorGuitar;
+            else if (childName.Contains("Mute"))
+                rippleColor = RippleEffect.ColorGuitar;
+
+            RippleEffect.Instance?.SpawnFromScreenPos(
+                RectTransformUtility.WorldToScreenPoint(Camera.main,
+                    finalChildT.position),
+                rippleColor, interrupt: false
+            );
+        });
+
+        Debug.Log($"[BOOTSTRAP] [OK] '{childName}' butonu + ripple bağlandı.");
     }
 
     private void UpdateEffectVisuals(Transform effectRow, string[] names)

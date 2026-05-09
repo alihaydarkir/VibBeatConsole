@@ -120,7 +120,8 @@ public class RippleEffect : MonoBehaviour
     /// UI elemanin Screen pozisyonunu kullanir.
     /// </summary>
     public void SpawnFromScreenPos(Vector2 screenPos, Color color,
-                                   float duration = 0.7f, int ringCount = 2)
+                                   float duration = 0.7f, int ringCount = 2,
+                                   bool interrupt = true)
     {
         if (canvasRect == null) return;
 
@@ -138,6 +139,12 @@ public class RippleEffect : MonoBehaviour
     /// <summary>
     /// Verilen WORLD pozisyonundan ripple baslatir (3D world coords).
     /// </summary>
+    /// <summary>Ekran butonlari icin kisayol — Camera.main null-safe</summary>
+    public void SpawnFromScreenPos(Vector2 screenPos, Color color, bool interrupt)
+    {
+        SpawnFromScreenPos(screenPos, color, expansionSpeed, ringCount, interrupt);
+    }
+
     public void SpawnFromWorld(Vector3 worldPos, Color color,
                                float duration = 0.7f, int ringCount = 2)
     {
