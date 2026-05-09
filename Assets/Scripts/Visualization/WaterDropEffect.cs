@@ -35,7 +35,7 @@ public class WaterDropEffect : MonoBehaviour
     [SerializeField] private float  dotFadeDur    = 0.25f;
 
     private RectTransform[] ringRects;
-    private Image[]         ringImages;
+    private CircleImage[]   ringImages;
     private GameObject[]    ringObjects;
     private int             poolIdx = 0;
     private RectTransform   canvasRT;
@@ -63,11 +63,10 @@ public class WaterDropEffect : MonoBehaviour
             go.transform.SetParent(targetCanvas.transform, false);
             go.transform.SetAsLastSibling();
 
-            var img = go.AddComponent<Image>();
+            // CircleImage — sprite gerektirmez, kod ile daire cizer
+            var img = go.AddComponent<CircleImage>();
             img.color         = Color.clear;
             img.raycastTarget = false;
-            // Knob sprite — daire gibi gorunur ama eliptik scale ile oval olur
-            img.sprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/Knob.psd");
 
             var rt = go.GetComponent<RectTransform>();
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
@@ -140,8 +139,7 @@ public class WaterDropEffect : MonoBehaviour
         go.transform.SetParent(targetCanvas.transform, false);
         go.transform.SetAsLastSibling();
 
-        var img = go.AddComponent<Image>();
-        img.sprite        = Resources.GetBuiltinResource<Sprite>("UI/Skin/Knob.psd");
+        var img = go.AddComponent<CircleImage>();
         img.raycastTarget = false;
 
         var rt = go.GetComponent<RectTransform>();
