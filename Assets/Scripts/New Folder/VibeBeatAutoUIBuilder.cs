@@ -99,6 +99,26 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
             GuitarCyan, 0.37f, 0.63f, 0.24f, 0.36f);
         startBtn.onClick.AddListener(sm.ShowOnboarding);
 
+        // ── AMBIENT DALGA — ekranin ortasi ──────────────────────────────
+        // Dalga container: baslik altinda, buton ustunde
+        var waveGO = EmptyRect("SplashWaveContainer", root.transform,
+            0.03f, 0.97f, 0.38f, 0.62f);
+
+        // AmbientWaveVisualizer bilesenini ekle ve container ata
+        var ambientWave = root.AddComponent<AmbientWaveVisualizer>();
+
+        // Container referansini Inspector yerine direkt kod ile set et
+        // (reflection ile private field'a erisim — Editor only)
+#if UNITY_EDITOR
+        var waveField = typeof(AmbientWaveVisualizer)
+            .GetField("container",
+                System.Reflection.BindingFlags.NonPublic |
+                System.Reflection.BindingFlags.Instance);
+        if (waveField != null)
+            waveField.SetValue(ambientWave,
+                waveGO.GetComponent<RectTransform>());
+#endif
+
         // Alt yazı
         Txt(root, "Footer", "Samsung S20 FE icin optimize edildi",
             20, Dim, Anchor.Center, 0.20f, 0.80f, 0.07f, 0.13f);
