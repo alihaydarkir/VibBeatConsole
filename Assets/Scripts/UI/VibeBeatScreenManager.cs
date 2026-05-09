@@ -56,7 +56,13 @@ public class VibeBeatScreenManager : MonoBehaviour
     // ─────────────────────────────────────────
     // GEÇİŞLER — hepsi aynı fade
     // ─────────────────────────────────────────
-    public void ShowSplash()       => Fade(splashScreen,      "VibBeat Console. Başlamak için ekrana dokunun.");
+    public void ShowSplash()
+    {
+        // İlk acilis — animasyon yok, direkt goster
+        if (!CheckInit()) return;
+        ShowOnly(splashScreen);
+        Debug.Log("[SCREEN_MGR] → SplashScreen (direkt)");
+    }
     public void ShowOnboarding()   => Fade(onboardingScreen,  "Nasıl kullanılır? Üç bölge var: Gitar, Piyano ve Davul.");
     public void ShowCalibration()  => Fade(calibrationScreen, "Kalibrasyon. Sol elinizi telefon ışık sensörünün üzerine kapatın.");
     public void ShowMainConsole()  => Fade(mainConsoleScreen, "Müzik konsolu. Sol bölge gitar, sağ üst piyano, sağ alt davul.");
