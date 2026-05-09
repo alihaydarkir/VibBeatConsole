@@ -61,7 +61,7 @@ public class SoundPresetManager : MonoBehaviour
         if (guitarClips != null && guitarIndex < guitarClips.Length)
             synth.SetGuitarClip(guitarClips[guitarIndex]);
 
-        if (pianoClips != null)
+        if (pianoClips != null && pianoClips.Length > 0)
         {
             AudioClip[] selected = new AudioClip[4];
             for (int i = 0; i < 4; i++)
