@@ -254,15 +254,7 @@ public class VisualizationController : MonoBehaviour
             SpawnEffect(pianoEffectPrefab, spawnPos);
         }
 
-        // 3. Su damlasi efekti — tuşun üzerinde
-        if (pianoKeyImages != null && keyIndex < pianoKeyImages.Length
-            && pianoKeyImages[keyIndex] != null)
-        {
-            WaterDropEffect.Instance?.SpawnPianoDrop(
-                pianoKeyImages[keyIndex].transform.position, keyIndex);
-        }
-
-        // 4. Ripple — tüm ekrana yayil (arka planda)
+        // 3. Ripple — tüm ekrana yayil (WaterDrop: TouchSpawnHandler halleder)
         if (pianoKeyImages != null && keyIndex < pianoKeyImages.Length
             && pianoKeyImages[keyIndex] != null)
         {
@@ -297,10 +289,7 @@ public class VisualizationController : MonoBehaviour
                 );
         }
 
-        // Su damlasi — davul yuzeyi eliptik damla
-        if (drumPadRect != null)
-            WaterDropEffect.Instance?.SpawnDrumDrop(drumPadRect.position);
-
+        // WaterDrop: TouchSpawnHandler hallediyor
         // Cartoon FX
         if (drumEffectPrefab != null && drumPadRect != null)
             SpawnEffect(drumEffectPrefab, drumPadRect.position);
