@@ -41,7 +41,24 @@ public class CalibrationManager : MonoBehaviour
     // --- Kalibrasyon Başlat ---
     public void StartCalibration()
     {
-        StartCoroutine(CalibrationRoutine());
+        if (gameObject.activeInHierarchy)
+        {
+            StartCoroutine(CalibrationRoutine());
+        }
+        else
+        {
+            // Inactive ise enabled kontrolunu atla, dogrudan invoke et
+            Debug.LogWarning("[CALIBRATION] GameObject inactive — coroutine gecikmeli baslatildi.");
+            Invoke(nameof(DelayedStart), 0.1f);
+        }
+    }
+
+    private void DelayedStart()
+    {
+        if (gameObject.activeInHierarchy)
+            StartCoroutine(CalibrationRoutine());
+        else
+            Debug.LogError("[CALIBRATION] GameObject hala inactive!");
     }
 
     private IEnumerator CalibrationRoutine()
