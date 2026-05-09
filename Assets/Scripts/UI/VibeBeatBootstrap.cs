@@ -439,7 +439,7 @@ public class VibeBeatBootstrap : MonoBehaviour
         Transform finalChildT = childT;
         btn.onClick.AddListener(() =>
         {
-            Color rippleColor = RippleEffect.ColorCalib; // varsayilan: beyaz
+            Color rippleColor = RippleEffect.ColorGuitar; // varsayilan: cyan
 
             // Butona gore renk sec
             if (childName.Contains("Start") || childName.Contains("Continue"))

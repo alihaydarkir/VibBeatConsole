@@ -29,8 +29,9 @@ public class VibBeatMasterController : MonoBehaviour
     [SerializeField] private bool   debugGuitarMuted  = false;
     [SerializeField] private string debugSensorStatus = "";
 
-    private bool  isRunning       = false;
-    private float normalizedSensor = 0f;
+    private bool  isRunning            = false;
+    private float normalizedSensor      = 0f;
+    private GuitarWaveVisualizer guitarWave = null;
 
     // ─────────────────────────────────────────
     // AWAKE — bağımlılıkları otomatik bul
