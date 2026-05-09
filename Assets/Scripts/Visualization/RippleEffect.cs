@@ -43,6 +43,12 @@ public class RippleEffect : MonoBehaviour
     [Tooltip("Halkalar arasi gecikme (saniye). Dusuk = birbirine yakin)")]
     [SerializeField] [Range(0.05f, 0.5f)] private float ringDelay    = 0.2f;
 
+    // EffectIntensityController tarafindan set edilir
+    public float StartAlpha     { get => startAlpha;    set => startAlpha    = value; }
+    public float ExpansionSpeed { get => expansionSpeed; set => expansionSpeed = value; }
+    public int   RingCount      { get => ringCount;     set => ringCount     = value; }
+    public float RingWidth      { get => ringWidth;     set { ringWidth = value; UpdatePoolRings(); } }
+
     // Renk paleti
     public static readonly Color ColorPianoDo = new Color(1.00f, 0.65f, 0.00f, 1f);
     public static readonly Color ColorPianoRe = new Color(0.80f, 0.90f, 0.00f, 1f);
@@ -173,6 +179,18 @@ public class RippleEffect : MonoBehaviour
     public void SpawnGuitar(Vector3 worldPos)
     {
         SpawnFromWorld(worldPos, ColorGuitar, expansionSpeed * 1.8f, ringCount);
+    }
+
+    /// <summary>Ring width degisince pool nesnelerini guncelle.</summary>
+    private void UpdatePoolRings()
+    {
+        if (poolImages == null) return;
+        foreach (var img in poolImages)
+        {
+            if (img == null) continue;
+            img.innerRadius = 1f - ringWidth;
+            img.SetVerticesDirty();
+        }
     }
 
     // ─────────────────────────────────────────

@@ -1,173 +1,148 @@
 using UnityEngine;
 using UnityEngine.UI;
-using DG.Tweening;
 
 /// <summary>
-/// Gitar panelinde cok bantli, renk gecisli dalga gorsellestirmesi.
-///
-/// Sensör degeri arttikca:
-///   - Daha fazla cubuk aktiflesir
-///   - Cubuklar yukari dogru buyur
-///   - Renkler mavi/cyan → yesil → sari → turuncu → kirmizi
-///   - Her cubuk biraz farkli hizada animasyon yapar (organik his)
-///
-/// Inspector'da WaveContainer atanmazsa GuitarPanel/WaveformArea'yi arar.
+/// Gitar paneli cok bantli dalga gorsellestirmesi.
+/// Cubuklar ortadan iki yone dogru buyur (yukari + asagi).
+/// Sensor degeri → yukseklik + renk gradient.
 /// </summary>
 public class GuitarWaveVisualizer : MonoBehaviour
 {
-    [Header("Referanslar")]
-    [Tooltip("WaveformArea RectTransform — bos bırakılırsa otomatik aranır")]
+    [Header("Referans")]
     [SerializeField] private RectTransform waveContainer;
 
     [Header("Cubuk Ayarlari")]
-    [Range(8, 24)]
-    [SerializeField] private int   barCount    = 14;
-    [SerializeField] private float barSpacing  = 0.7f;   // cubuklar arasi bosluk orani
-    [SerializeField] private float minBarHeight = 0.04f; // minimum yukseklik (0-1)
-    [SerializeField] private float maxBarHeight = 0.92f; // maksimum yukseklik (0-1)
-    [SerializeField] private float animSpeed   = 0.12f;  // DOTween sure
-    [SerializeField] private float noiseAmount = 0.15f;  // organik titreme miktari
+    [Range(8, 32)]
+    [SerializeField] private int   barCount     = 16;
+    [Range(0f, 0.5f)]
+    [SerializeField] private float barGapRatio  = 0.25f;  // bosluk orani
+    [Range(0f, 0.48f)]
+    [SerializeField] private float maxHalfHeight = 0.42f; // merkeze gore max yari yukseklik
+    [Range(0f, 0.1f)]
+    [SerializeField] private float minHalfHeight = 0.02f;
+    [SerializeField] private float noiseSpeed    = 1.8f;
+    [SerializeField] private float noiseAmount   = 0.12f;
+    [SerializeField] private float smoothSpeed   = 6f;
 
-    [Header("Renkler (dusukten yuksege)")]
-    [SerializeField] private Color colorLow    = new Color(0.00f, 0.60f, 1.00f, 1f); // mavi
-    [SerializeField] private Color colorMid    = new Color(0.00f, 1.00f, 0.80f, 1f); // cyan-yesil
-    [SerializeField] private Color colorHigh   = new Color(1.00f, 0.60f, 0.00f, 1f); // turuncu
-    [SerializeField] private Color colorPeak   = new Color(1.00f, 0.10f, 0.40f, 1f); // kirmizi-pembe
+    [Header("Renk Gradyani")]
+    [SerializeField] private Color colorLow  = new Color(0.00f, 0.55f, 1.00f, 1f);
+    [SerializeField] private Color colorMid  = new Color(0.00f, 1.00f, 0.75f, 1f);
+    [SerializeField] private Color colorHigh = new Color(1.00f, 0.55f, 0.00f, 1f);
+    [SerializeField] private Color colorPeak = new Color(1.00f, 0.10f, 0.45f, 1f);
 
-    // ─── Özel alanlar ───────────────────────────────────────────────────────
+    // EffectIntensityController tarafindan set edilir
+    public float EffectMultiplier { get; set; } = 1f;
+    public float NoiseAmount      { get => noiseAmount; set => noiseAmount = value; }
+    public float NoiseSpeed       { get => noiseSpeed;  set => noiseSpeed  = value; }
+
     private RectTransform[] bars;
     private Image[]         barImages;
     private float[]         noiseOffsets;
-    private float           currentValue = 0f;
-    private float           targetValue  = 0f;
+    private float           currentVal = 0f;
+    private float           targetVal  = 0f;
+    private float           updateTimer;
+    private const float     UPDATE_INTERVAL = 0.04f;
 
-    // ─────────────────────────────────────────
-    // BAŞLATMA
     // ─────────────────────────────────────────
     private void Start()
     {
         if (waveContainer == null)
-        {
-            // GuitarPanel/WaveformArea'yi bul
-            var vController = FindFirstObjectByType<VisualizationController>();
-            GameObject found = GameObject.Find("WaveformArea");
-            if (found != null)
-                waveContainer = found.GetComponent<RectTransform>();
-        }
+            waveContainer = GameObject.Find("WaveformArea")
+                ?.GetComponent<RectTransform>();
 
         if (waveContainer == null)
-        {
-            Debug.LogError("[GUITAR_WAVE] WaveformArea bulunamadı! Inspector'dan ata.");
-            return;
-        }
+        { Debug.LogError("[GUITAR_WAVE] WaveformArea bulunamadi!"); return; }
 
-        BuildBars();
-        Debug.Log($"[GUITAR_WAVE] [OK] {barCount} cubuk olusturuldu.");
+        Build();
+        Debug.Log($"[GUITAR_WAVE] [OK] {barCount} cubuk (cift yon).");
     }
 
-    private void BuildBars()
+    private void Build()
     {
+        // Temizle
+        for (int i = waveContainer.childCount - 1; i >= 0; i--)
+            Destroy(waveContainer.GetChild(i).gameObject);
+
         bars        = new RectTransform[barCount];
         barImages   = new Image[barCount];
         noiseOffsets = new float[barCount];
 
-        // Eski cubuklari temizle
-        for (int i = waveContainer.childCount - 1; i >= 0; i--)
-            Destroy(waveContainer.GetChild(i).gameObject);
-
-        float totalSpacing = barSpacing * (barCount - 1);
-        float barWidth     = (1f - totalSpacing) / barCount;
-        if (barWidth < 0.02f) barWidth = 0.02f;
+        float totalWidth = 1f;
+        float gap        = barGapRatio / barCount;
+        float barW       = (totalWidth - gap * barCount) / barCount;
+        if (barW < 0.01f) barW = 0.01f;
 
         for (int i = 0; i < barCount; i++)
         {
-            float xStart = i * (barWidth + barSpacing / barCount);
+            float x0 = i * (barW + gap);
+            float x1 = x0 + barW;
 
-            var go = new GameObject($"Bar_{i}");
+            var go  = new GameObject($"Bar_{i}");
             go.transform.SetParent(waveContainer, false);
 
             var img = go.AddComponent<Image>();
             img.raycastTarget = false;
 
             var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(xStart, 0f);
-            rt.anchorMax = new Vector2(xStart + barWidth * (1f - barSpacing * 0.1f), minBarHeight);
+            // Baslangicta merkez noktasinda (0.5 y)
+            rt.anchorMin = new Vector2(x0, 0.5f - minHalfHeight);
+            rt.anchorMax = new Vector2(x1, 0.5f + minHalfHeight);
             rt.offsetMin = rt.offsetMax = Vector2.zero;
 
-            bars[i]      = rt;
-            barImages[i] = img;
-            noiseOffsets[i] = Random.Range(0f, 100f); // her cubuğa farklı noise başlangıcı
+            bars[i]       = rt;
+            barImages[i]  = img;
+            noiseOffsets[i] = Random.Range(0f, 100f);
         }
     }
-
-    // ─────────────────────────────────────────
-    // UPDATE — sensör verisine gore animasyon
-    // ─────────────────────────────────────────
-    private float updateTimer = 0f;
-    private const float UPDATE_INTERVAL = 0.05f; // 20fps yeterli, daha az CPU
 
     private void Update()
     {
         if (bars == null) return;
 
-        // Yumusak gecis
-        currentValue = Mathf.Lerp(currentValue, targetValue, Time.deltaTime * 8f);
+        currentVal = Mathf.Lerp(currentVal, targetVal, Time.deltaTime * smoothSpeed);
 
         updateTimer += Time.deltaTime;
         if (updateTimer < UPDATE_INTERVAL) return;
         updateTimer = 0f;
 
-        UpdateBars();
-    }
-
-    private void UpdateBars()
-    {
         float time = Time.time;
+        float eff  = Mathf.Clamp01(EffectMultiplier);
 
         for (int i = 0; i < barCount; i++)
         {
             if (bars[i] == null) continue;
 
-            // Her cubuk biraz farkli pozisyonda — ortadan kenara dogru dalga
-            float centerDist = Mathf.Abs(i - barCount * 0.5f) / (barCount * 0.5f);
-            float wave       = Mathf.Sin(time * 3f + noiseOffsets[i] * 0.5f) * noiseAmount;
-            float noise      = Mathf.PerlinNoise(noiseOffsets[i], time * 1.5f) * noiseAmount;
+            // Her cubuk icin biyolojik dalga
+            float phase    = noiseOffsets[i];
+            float wave     = Mathf.Sin(time * noiseSpeed + phase) * noiseAmount;
+            float perlin   = (Mathf.PerlinNoise(phase * 0.1f, time * 0.8f) - 0.5f)
+                             * noiseAmount * 0.8f;
 
-            // Aktif cubuk sayisi: dusuk sensor = sadece ortadakiler aktif
-            float barThreshold = (float)i / barCount;
-            float activeRatio  = Mathf.Clamp01(currentValue * 1.2f - barThreshold * 0.3f + 0.1f);
+            // Ortadan uzaklasinca biraz daha az aktif (kelebek kanati profili)
+            float center   = Mathf.Abs((float)i / barCount - 0.5f) * 2f; // 0=orta 1=kenar
+            float profile  = 1f - center * 0.3f;
 
-            float height = Mathf.Lerp(minBarHeight,
-                maxBarHeight * activeRatio + wave + noise,
-                activeRatio);
-            height = Mathf.Clamp(height, minBarHeight, maxBarHeight);
+            float halfH    = Mathf.Lerp(minHalfHeight,
+                maxHalfHeight * profile * eff,
+                currentVal) + wave + perlin;
+            halfH = Mathf.Clamp(halfH, minHalfHeight, maxHalfHeight);
 
-            // Cubugu alt merkezden yukari dogru buyut
-            bars[i].anchorMax = new Vector2(bars[i].anchorMax.x, height);
+            // Cift yon: 0.5 - halfH → 0.5 + halfH
+            bars[i].anchorMin = new Vector2(bars[i].anchorMin.x, 0.5f - halfH);
+            bars[i].anchorMax = new Vector2(bars[i].anchorMax.x, 0.5f + halfH);
 
-            // Renk: sensor degeri + yukseklige gore gradient
-            float colorT    = (currentValue * 0.7f + (height / maxBarHeight) * 0.3f);
-            Color barColor;
-            if (colorT < 0.33f)
-                barColor = Color.Lerp(colorLow,  colorMid,  colorT * 3f);
-            else if (colorT < 0.66f)
-                barColor = Color.Lerp(colorMid,  colorHigh, (colorT - 0.33f) * 3f);
-            else
-                barColor = Color.Lerp(colorHigh, colorPeak, (colorT - 0.66f) * 3f);
+            // Renk
+            float t = currentVal * 0.65f + (halfH / maxHalfHeight) * 0.35f;
+            Color c;
+            if      (t < 0.33f) c = Color.Lerp(colorLow,  colorMid,  t / 0.33f);
+            else if (t < 0.66f) c = Color.Lerp(colorMid,  colorHigh, (t-0.33f)/0.33f);
+            else                c = Color.Lerp(colorHigh, colorPeak,  (t-0.66f)/0.34f);
 
-            // Parlaklik: yuksek cubuklar daha parlak
-            barColor *= (0.6f + height / maxBarHeight * 0.8f);
-            barColor.a = Mathf.Lerp(0.3f, 1f, activeRatio);
-
-            barImages[i].color = barColor;
+            c   *= (0.5f + halfH / maxHalfHeight * 0.8f);
+            c.a  = Mathf.Lerp(0.25f, 1f, currentVal * eff + halfH / maxHalfHeight * 0.4f);
+            barImages[i].color = c;
         }
     }
 
-    // ─────────────────────────────────────────
-    // PUBLIC API — MasterController bu metodu çağırır
-    // ─────────────────────────────────────────
-    public void SetSensorValue(float normalizedValue)
-    {
-        targetValue = Mathf.Clamp01(normalizedValue);
-    }
+    public void SetSensorValue(float v) => targetVal = Mathf.Clamp01(v);
 }

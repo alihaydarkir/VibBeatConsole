@@ -42,6 +42,14 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
         if (!canvas.GetComponent<VibeBeatBootstrap>())
             canvas.AddComponent<VibeBeatBootstrap>();
 
+        // RippleEffect Canvas'a otomatik ekle (Inspector'dan atama gerek yok)
+        var ripple = canvas.GetComponent<RippleEffect>()
+                  ?? canvas.AddComponent<RippleEffect>();
+
+        // EffectIntensityController VibBeat Systems'e ekle
+        var effectCtrl = FindFirstObjectByType<EffectIntensityController>();
+        // (VibBeat Systems'e manuel eklenirse otomatik devreye girer)
+
         var splash  = SplashScreen(canvas.transform);
         var onboard = OnboardingScreen(canvas.transform);
         var calib   = CalibrationScreen(canvas.transform);
@@ -269,22 +277,9 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
         Txt(gPanel, "SensorValueText","0.00", 56, TextWhite,
             Anchor.Center, 0.05f, 0.95f, 0.68f, 0.81f, bold:true);
 
-        // Skala cizgileri — solda
-        string[] scaleLabels = {"- 1.0", "", "- 0.5", "", "- 0.0"};
-        for (int s = 0; s < 5; s++)
-        {
-            float sy = 0.63f - s * 0.088f;
-            // Cizgi
-            Panel("ScaleLine_"+s, gPanel.transform, Hex("#1A3348"),
-                0.02f, 0.14f, sy, sy + 0.003f);
-            if (scaleLabels[s] != "")
-                Txt(gPanel, "ScaleLbl_"+s, scaleLabels[s], 15, Hex("#4A7090"),
-                    Anchor.Left, 0.02f, 0.38f, sy-0.025f, sy+0.035f);
-        }
-
-        // Dalga alani
-        Panel("WaveformArea", gPanel.transform, Hex("#07101A"),
-            0.15f, 0.95f, 0.27f, 0.65f);
+        // Dalga alani — scale cizgileri kaldirildi, alan genisletildi
+        Panel("WaveformArea", gPanel.transform, Hex("#060E18"),
+            0.04f, 0.96f, 0.27f, 0.65f);
 
         // Butonlar
         var calBtn = GlowBtn(gPanel.transform, "CalibrateButton", "KALIBRE ET",

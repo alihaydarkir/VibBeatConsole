@@ -284,6 +284,8 @@ public class VibeBeatBootstrap : MonoBehaviour
                         effectLevel = level;
                         Debug.Log($"[BOOTSTRAP] Efekt seviyesi: {level}");
                         UpdateEffectVisuals(effectRow, effNames);
+                        // EffectIntensityController'a ilet
+                        EffectIntensityController.Instance?.SetLevel(level);
                     });
                 }
                 else Debug.LogWarning($"[BOOTSTRAP] {effNames[i]} bulunamadı!");
