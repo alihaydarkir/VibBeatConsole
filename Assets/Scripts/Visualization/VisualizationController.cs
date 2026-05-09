@@ -228,35 +228,23 @@ public class VisualizationController : MonoBehaviour
     /// </summary>
     public void PlayDrumImpactVisualization()
     {
+        // Scale press efekti — piyanoyla ayni mantik
         if (drumPadRect != null)
         {
             drumPadRect.DOKill();
-
-            // DOPunchScale: vurma hissi veren elastik büyüme
-            drumPadRect.DOPunchScale(
-                punch:     new Vector3(0.12f, 0.12f, 0f),
-                duration:  0.4f,
-                vibrato:   6,
-                elasticity:0.5f
-            ).SetEase(Ease.OutQuart);
-
-            // Arka plan renk flash (Image varsa)
-            Image padImg = drumPadRect.GetComponent<Image>();
-            if (padImg != null)
-            {
-                padImg.DOKill();
-                padImg.DOColor(DrumMagenta, 0.04f)
-                    .OnComplete(() =>
-                        padImg.DOColor(NeutralDark, 0.4f).SetEase(Ease.InCubic)
-                    );
-            }
+            drumPadRect
+                .DOScale(0.92f, 0.06f)
+                .SetEase(Ease.OutQuart)
+                .OnComplete(() =>
+                    drumPadRect.DOScale(1f, 0.22f).SetEase(Ease.OutBack)
+                );
         }
 
         // Cartoon FX
         if (drumEffectPrefab != null && drumPadRect != null)
             SpawnEffect(drumEffectPrefab, drumPadRect.position);
 
-        // Ripple — davul merkezinden 3 halka
+        // Ripple — davul merkezinden halka
         if (drumPadRect != null)
             RippleEffect.Instance?.SpawnDrum(drumPadRect.position);
 

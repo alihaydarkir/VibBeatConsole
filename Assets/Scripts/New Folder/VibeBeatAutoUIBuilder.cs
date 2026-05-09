@@ -276,6 +276,14 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
                 BgCard, kx0, kx1, 0.08f, 0.98f);
             var kb = key.AddComponent<Button>();
             kb.transition = Selectable.Transition.None;
+
+            // Arka plan resim slotu — Project panelinden sprite surukle-birak
+            var bgImg = EmptyRect("BgImage", key.transform, 0f, 1f, 0f, 1f);
+            var bgImgComp = bgImg.AddComponent<Image>();
+            bgImgComp.color = new Color(1f, 1f, 1f, 0.18f);  // hafif saydam
+            bgImgComp.preserveAspect = true;
+            bgImgComp.raycastTarget = false;
+
             // Dikey gösterge çizgisi
             Panel("Line", key.transform, Hex("#FFFFFF15"),
                 0.44f, 0.56f, 0.10f, 0.90f);
@@ -295,6 +303,13 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
         var padGO = Panel("DrumPad", dArea.transform, BgCard, 0.00f, 1.00f, 0.00f, 0.75f);
         var padBtn = padGO.AddComponent<Button>();
         padBtn.transition = Selectable.Transition.None;
+
+        // Davul arka plan resim slotu
+        var drumBgImg = EmptyRect("BgImage", padGO.transform, 0f, 1f, 0f, 1f);
+        var drumBgComp = drumBgImg.AddComponent<Image>();
+        drumBgComp.color = new Color(1f, 1f, 1f, 0.18f);
+        drumBgComp.preserveAspect = true;
+        drumBgComp.raycastTarget = false;
 
         // Halka görselleri — sabit kare kapsayıcı içinde, clip yok (serbest)
         var rh = EmptyRect("RingHolder", padGO.transform,
