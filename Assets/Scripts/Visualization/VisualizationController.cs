@@ -85,8 +85,57 @@ public class VisualizationController : MonoBehaviour
         // DOTween global ayarları
         DOTween.SetTweensCapacity(200, 50);
 
+        // Inspector bos birakilmissa otomatik bul
+        AutoFindReferences();
+
         StartGuitarIdlePulse();
         Debug.Log("[VFX] [OK] VisualizationController baslatildi.");
+    }
+
+    private void AutoFindReferences()
+    {
+        // Cartoon FX prefablarini Resources veya scene'den bul (atanmamissa)
+        // Bunlar Inspector'dan atanmissa bu blogu atla
+        // (Cartoon FX prefab'lari Assets/JMO Assets altinda)
+        // Piano Key Images — PianoPanel altindaki 4 tusu bul
+        if (pianoKeyImages == null || pianoKeyImages.Length == 0
+            || pianoKeyImages[0] == null)
+        {
+            string[] noteNames = {"PianoKey_C4","PianoKey_D4","PianoKey_E4","PianoKey_F4"};
+            pianoKeyImages = new Image[4];
+            for (int i = 0; i < noteNames.Length; i++)
+            {
+                var go = GameObject.Find(noteNames[i]);
+                if (go != null)
+                    pianoKeyImages[i] = go.GetComponent<Image>();
+            }
+            bool allFound = System.Array.TrueForAll(pianoKeyImages, x => x != null);
+            Debug.Log($"[VFX] Piano images: {(allFound ? "[OK]" : "[EKSIK]")}");
+        }
+
+        // Drum Pad Rect
+        if (drumPadRect == null)
+        {
+            var go = GameObject.Find("DrumPad");
+            if (go != null) drumPadRect = go.GetComponent<RectTransform>();
+            Debug.Log($"[VFX] DrumPad: {(drumPadRect != null ? "[OK]" : "[EKSIK]")}");
+        }
+
+        // Guitar Wave Rect
+        if (guitarWaveRect == null)
+        {
+            var go = GameObject.Find("WaveformArea");
+            if (go != null) guitarWaveRect = go.GetComponent<RectTransform>();
+            Debug.Log($"[VFX] WaveformArea: {(guitarWaveRect != null ? "[OK]" : "[EKSIK]")}");
+        }
+
+        // Sensor Value Graphic
+        if (sensorValueGraphic == null)
+        {
+            var go = GameObject.Find("SensorValueText");
+            if (go != null) sensorValueGraphic = go.GetComponent<UnityEngine.UI.Graphic>();
+            Debug.Log($"[VFX] SensorValueText: {(sensorValueGraphic != null ? "[OK]" : "[EKSIK]")}");
+        }
     }
 
     // ─────────────────────────────────────────

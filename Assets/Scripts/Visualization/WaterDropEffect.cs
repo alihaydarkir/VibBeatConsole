@@ -43,11 +43,12 @@ public class WaterDropEffect : MonoBehaviour
     private void Start()
     {
         if (targetCanvas == null)
-            targetCanvas = FindFirstObjectByType<Canvas>();
+            targetCanvas = GetComponentInParent<Canvas>()
+                        ?? FindFirstObjectByType<Canvas>();
 
         canvasRT = targetCanvas.GetComponent<RectTransform>();
         BuildPool();
-        Debug.Log($"[WATER_DROP] [OK] {poolSize} halka hazir.");
+        Debug.Log($"[WATER_DROP] [OK] {poolSize} halka hazir. Canvas: {targetCanvas.name}");
     }
 
     private void BuildPool()
