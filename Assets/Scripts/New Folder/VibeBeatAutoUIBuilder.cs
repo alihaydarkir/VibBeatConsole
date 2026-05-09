@@ -15,16 +15,17 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
     private const string CanvasName = "VibeBeatCanvas";
 
     // ─── Renk Paleti ──────────────────────────────────────────────────────────
-    private static readonly Color BgDeep      = Hex("#020609");
-    private static readonly Color BgSurface   = Hex("#071018");
-    private static readonly Color BgCard      = Hex("#0D1A28");
-    private static readonly Color GuitarCyan  = Hex("#00F0FF");
-    private static readonly Color PianoOrange = Hex("#FFA500");
-    private static readonly Color DrumMagenta = Hex("#FF1AAD");
-    private static readonly Color TextWhite   = Hex("#F2F2F2");
-    private static readonly Color TextGray    = Hex("#8899AA");
-    private static readonly Color Passive     = Hex("#1A2535");
-    private static readonly Color Dim         = Hex("#334455");
+    private static readonly Color BgDeep      = Hex("#080C14");  // referans: cok koyu lacivert
+    private static readonly Color BgSurface   = Hex("#0D1520");  // panel arkaplan
+    private static readonly Color BgCard      = Hex("#111C2A");  // kart arkaplan
+    private static readonly Color BgBorder    = Hex("#1A2C40");  // ince sinir
+    private static readonly Color GuitarCyan  = Hex("#00E5FF");  // parlak cyan
+    private static readonly Color PianoOrange = Hex("#FF9500");  // sicak turuncu
+    private static readonly Color DrumMagenta = Hex("#FF0099");  // canli magenta
+    private static readonly Color TextWhite   = Hex("#EEEEFF");  // hafif mavi-beyaz
+    private static readonly Color TextGray    = Hex("#7A9AB5");  // soguk gri
+    private static readonly Color Passive     = Hex("#162030");  // buton pasif
+    private static readonly Color Dim         = Hex("#2A3F55");  // cok soluk
 
     private VibeBeatScreenManager sm; // screen manager kısaltması
 
@@ -74,14 +75,16 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
         var root = FullScreen("SplashScreen", parent, BgDeep);
 
         // Başlık
-        Txt(root, "TitleA", "VIBEBEAT", 80, TextWhite, Anchor.Center,
-            0.05f, 0.50f, 0.69f, 0.81f, bold: true);
-        Txt(root, "TitleB", "CONSOLE", 80, GuitarCyan, Anchor.Center,
-            0.50f, 0.95f, 0.69f, 0.81f, bold: true);
+        Txt(root, "TitleA", "VIBE", 92, TextWhite, Anchor.Right,
+            0.05f, 0.50f, 0.69f, 0.83f, bold: true);
+        Txt(root, "TitleB", "BEAT", 92, GuitarCyan, Anchor.Left,
+            0.50f, 0.95f, 0.69f, 0.83f, bold: true);
+        Txt(root, "TitleC", "CONSOLE", 44, new Color(0.7f, 0.5f, 1f, 0.9f), Anchor.Center,
+            0.25f, 0.75f, 0.63f, 0.70f, bold: true);
 
         // Alt başlık
-        Txt(root, "Subtitle", "Sensör Tabanlı Müzik Deneyimi", 26, TextGray,
-            Anchor.Center, 0.15f, 0.85f, 0.62f, 0.69f);
+        Txt(root, "Subtitle", "Sensör Tabanlı Müzik Deneyimi", 28, TextGray,
+            Anchor.Center, 0.15f, 0.85f, 0.57f, 0.63f);
 
         // Başla butonu
         var startBtn = GlowBtn(root.transform, "StartButton", "BASLA  >",
@@ -235,89 +238,133 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
         var root = FullScreen("MainConsoleScreen", parent, BgDeep);
         TopBar(root.transform, settings: true, back: false, dots: false);
 
-        // ── GİTAR alanı (sol %30) ─────────────────────────────────────────
-        var gArea = EmptyRect("GuitarPanel", root.transform, 0.012f, 0.295f, 0.04f, 0.90f);
+        // ── GİTAR PANEL (sol %29) — referans tasarima gore ───────────────
+        // Yumusak koseli sinirli panel
+        var gPanel = Panel("GuitarPanel", root.transform, BgSurface,
+            0.010f, 0.292f, 0.035f, 0.960f);
 
-        Txt(gArea, "TitleText",     "GUITAR",         38, GuitarCyan, Anchor.Center, 0.05f, 0.95f, 0.87f, 0.97f, bold: true);
-        Txt(gArea, "SensorLabel",   "SENSOR SEVIYESI",18, TextGray,   Anchor.Center, 0.05f, 0.95f, 0.80f, 0.87f);
-        Txt(gArea, "SensorValueText","0.00",           58, TextWhite,  Anchor.Center, 0.05f, 0.95f, 0.66f, 0.81f, bold: true);
+        // Ust: ikon alani + baslik
+        Panel("GuitarHeader", gPanel.transform, Hex("#0D2030"), 0f, 1f, 0.88f, 1f);
+        Txt(gPanel, "TitleIcon",    "♪",          36, GuitarCyan, Anchor.Left,   0.06f, 0.22f, 0.89f, 0.99f);
+        Txt(gPanel, "TitleText",    "GUITAR",      42, GuitarCyan, Anchor.Left,   0.22f, 0.95f, 0.89f, 0.99f, bold: true);
 
-        // Dalga alanı — boş bırakıldı, animasyonunu kendin ekle
-        Panel("WaveformArea", gArea.transform, Hex("#0A1520"),
-            0.06f, 0.94f, 0.28f, 0.62f);
+        // Sensor degeri - buyuk ve belirgin
+        Txt(gPanel, "SensorLabel",    "SENSOR SEVIYESI", 18, TextGray,  Anchor.Center, 0.05f, 0.95f, 0.81f, 0.88f);
+        Txt(gPanel, "SensorValueText","0.00",             62, TextWhite, Anchor.Center, 0.05f, 0.95f, 0.67f, 0.81f, bold: true);
 
-        var calBtn = GlowBtn(gArea.transform, "CalibrateButton", "KALIBRE ET",
-            GuitarCyan, 0.06f, 0.94f, 0.14f, 0.25f);
+        // Skala cizgileri (sol kenar) — referanstaki gibi
+        for (int s = 0; s <= 4; s++)
+        {
+            float sy = 0.28f + s * 0.09f;
+            Panel("Scale_" + s, gPanel.transform, Hex("#1E3A50"), 0.03f, 0.12f, sy, sy + 0.002f);
+            string lbl = s == 0 ? "0.0" : s == 2 ? "0.5" : s == 4 ? "1.0" : "";
+            if (lbl != "")
+                Txt(gPanel, "ScaleLbl_" + s, lbl, 16, TextGray, Anchor.Right,
+                    0.01f, 0.14f, sy - 0.02f, sy + 0.04f);
+        }
+
+        // Dalga alani — WaveformArea, VisualizationController buraya cizer
+        var waveArea = Panel("WaveformArea", gPanel.transform, Hex("#090F1A"),
+            0.12f, 0.92f, 0.28f, 0.64f);
+
+        // Butonlar — buyuk ve belirgin
+        var calBtn = GlowBtn(gPanel.transform, "CalibrateButton", "⊙  KALIBRE ET",
+            GuitarCyan, 0.06f, 0.94f, 0.13f, 0.25f);
         calBtn.onClick.AddListener(sm.ShowCalibration);
 
-        var muteGO = Panel("MuteButton", gArea.transform, Passive, 0.06f, 0.94f, 0.01f, 0.12f);
+        var muteGO = Panel("MuteButton", gPanel.transform, Passive,
+            0.06f, 0.94f, 0.01f, 0.12f);
         var muteBtn = muteGO.AddComponent<Button>();
         muteBtn.transition = Selectable.Transition.None;
-        Txt(muteGO, "Label", "MUTE", 22, TextGray, Anchor.Center, 0f, 1f, 0f, 1f, bold: true);
+        Txt(muteGO, "Label", "◁×  MUTE", 24, TextGray, Anchor.Center, 0f, 1f, 0f, 1f, bold: true);
 
-        // İnce dikey separator çizgisi
-        Panel("VSep", root.transform, Hex("#00F0FF22"), 0.298f, 0.302f, 0.04f, 0.90f);
+        // Sinir parlama efekti — sol panel sag kenari
+        Panel("VSep", root.transform, Hex("#00E5FF18"), 0.290f, 0.294f, 0.035f, 0.960f);
+        Panel("VSepGlow", root.transform, Hex("#00E5FF08"), 0.286f, 0.298f, 0.035f, 0.960f);
 
-        // ── SAĞ PANEL (Piano + Drum) — Bootstrap bunun üstünden buluyor ──
-        var right = EmptyRect("RightPanel", root.transform, 0.308f, 0.988f, 0.04f, 0.90f);
+        // ── SAG PANEL ─────────────────────────────────────────────────────
+        var right = EmptyRect("RightPanel", root.transform, 0.300f, 0.990f, 0.035f, 0.960f);
 
-        // ── PİYANO alanı (sağ üst %50) ───────────────────────────────────
-        var pArea = EmptyRect("PianoPanel", right.transform, 0f, 1f, 0.535f, 1f);
-
-        Txt(pArea, "TitleText", "PIANO", 34, PianoOrange, Anchor.Left,
-            0.02f, 0.40f, 0.76f, 0.95f, bold: true);
+        // ── PIANO alani (sag ust %50) ─────────────────────────────────────
+        var pPanel = Panel("PianoPanel", right.transform, BgSurface, 0f, 1f, 0.520f, 1f);
+        Panel("PianoHeader", pPanel.transform, Hex("#1A1200"), 0f, 1f, 0.85f, 1f);
+        Txt(pPanel, "TitleIcon", "⬛", 28, PianoOrange, Anchor.Left, 0.02f, 0.12f, 0.86f, 0.99f);
+        Txt(pPanel, "TitleText", "PIANO", 38, PianoOrange, Anchor.Left,
+            0.12f, 0.60f, 0.84f, 0.99f, bold: true);
 
         string[] notes = { "C4", "D4", "E4", "F4" };
+        string[] noteLabels = { "Do", "Re", "Mi", "Fa" };
+        Color[] noteColors  = {
+            Hex("#FF9500"), Hex("#FFD700"), Hex("#00BFFF"), Hex("#BF5FFF")
+        };
+
         for (int i = 0; i < 4; i++)
         {
-            float kx0 = 0.02f + i * 0.245f;
-            float kx1 = kx0 + 0.225f;
-            var key = Panel("PianoKey_" + notes[i], pArea.transform,
-                BgCard, kx0, kx1, 0.08f, 0.98f);
+            float kx0 = 0.015f + i * 0.246f;
+            float kx1 = kx0 + 0.230f;
+            Color nc = noteColors[i];
+
+            // Kart — ince renkli sinirli
+            var key = Panel("PianoKey_" + notes[i], pPanel.transform,
+                BgCard, kx0, kx1, 0.06f, 0.82f);
             var kb = key.AddComponent<Button>();
             kb.transition = Selectable.Transition.None;
 
-            // Arka plan resim slotu — Project panelinden sprite surukle-birak
+            // Ince renk siniri (ust)
+            Panel("TopBorder_" + i, key.transform,
+                new Color(nc.r, nc.g, nc.b, 0.6f), 0f, 1f, 0.96f, 1f);
+
+            // Arka plan resim slotu
             var bgImg = EmptyRect("BgImage", key.transform, 0f, 1f, 0f, 1f);
             var bgImgComp = bgImg.AddComponent<Image>();
-            bgImgComp.color = new Color(1f, 1f, 1f, 0.18f);  // hafif saydam
+            bgImgComp.color = new Color(1f, 1f, 1f, 0.15f);
             bgImgComp.preserveAspect = true;
             bgImgComp.raycastTarget = false;
 
-            // Dikey gösterge çizgisi
-            Panel("Line", key.transform, Hex("#FFFFFF15"),
-                0.44f, 0.56f, 0.10f, 0.90f);
-            Txt(key, "NoteLabel", notes[i], 22, Dim,
-                Anchor.Center, 0f, 1f, 0.01f, 0.17f);
+            // Dikey ince cizgi
+            Panel("Line", key.transform, new Color(nc.r, nc.g, nc.b, 0.12f),
+                0.44f, 0.56f, 0.12f, 0.88f);
+
+            // Alt nota ismi
+            Txt(key, "NoteLabel", noteLabels[i], 26,
+                new Color(nc.r, nc.g, nc.b, 0.9f),
+                Anchor.Center, 0f, 1f, 0.01f, 0.20f, bold: true);
         }
 
-        // İnce yatay separator
-        Panel("HSep", right.transform, Hex("#FFFFFF11"), 0f, 1f, 0.529f, 0.541f);
+        // Separator
+        Panel("HSep", right.transform, Hex("#FFFFFF0A"), 0f, 1f, 0.514f, 0.520f);
 
-        // ── DAVUL alanı (sağ alt %48) ─────────────────────────────────────
-        var dArea = EmptyRect("DrumPanel", right.transform, 0f, 1f, 0f, 0.523f);
+        // ── DAVUL alani (sag alt %50) ─────────────────────────────────────
+        var dPanel = Panel("DrumPanel", right.transform, BgSurface, 0f, 1f, 0f, 0.508f);
+        Panel("DrumHeader", dPanel.transform, Hex("#1A0010"), 0f, 1f, 0.82f, 1f);
+        Txt(dPanel, "TitleIcon", "⬤", 22, DrumMagenta, Anchor.Left, 0.02f, 0.10f, 0.84f, 0.99f);
+        Txt(dPanel, "TitleText", "DRUM", 38, DrumMagenta, Anchor.Left,
+            0.10f, 0.55f, 0.82f, 0.99f, bold: true);
 
-        Txt(dArea, "TitleText", "DRUM", 34, DrumMagenta, Anchor.Left,
-            0.02f, 0.40f, 0.77f, 0.95f, bold: true);
-
-        var padGO = Panel("DrumPad", dArea.transform, BgCard, 0.00f, 1.00f, 0.00f, 0.75f);
+        // DrumPad — tum alan
+        var padGO = Panel("DrumPad", dPanel.transform, BgCard,
+            0.01f, 0.99f, 0.01f, 0.80f);
         var padBtn = padGO.AddComponent<Button>();
         padBtn.transition = Selectable.Transition.None;
 
-        // Davul arka plan resim slotu
+        // Ust magenta sinir
+        Panel("TopBorder", padGO.transform,
+            new Color(DrumMagenta.r, DrumMagenta.g, DrumMagenta.b, 0.5f),
+            0f, 1f, 0.97f, 1f);
+
+        // Arka plan resim slotu
         var drumBgImg = EmptyRect("BgImage", padGO.transform, 0f, 1f, 0f, 1f);
         var drumBgComp = drumBgImg.AddComponent<Image>();
-        drumBgComp.color = new Color(1f, 1f, 1f, 0.18f);
+        drumBgComp.color = new Color(1f, 1f, 1f, 0.12f);
         drumBgComp.preserveAspect = true;
         drumBgComp.raycastTarget = false;
 
-        // Halka görselleri — sabit kare kapsayıcı içinde, clip yok (serbest)
-        var rh = EmptyRect("RingHolder", padGO.transform,
-            0.5f, 0.5f, 0.5f, 0.5f);
-        rh.GetComponent<RectTransform>().sizeDelta = new Vector2(140f, 140f);
+        // Statik halka dekorasyonu (arkaplan, animasyonsuz)
+        var rh = EmptyRect("RingHolder", padGO.transform, 0.5f, 0.5f, 0.5f, 0.5f);
+        rh.GetComponent<RectTransform>().sizeDelta = new Vector2(180f, 90f);
 
-        float[] rs = { 1.00f, 0.72f, 0.48f, 0.28f };
-        float[] al = { 0.08f, 0.18f, 0.35f, 0.65f };
+        float[] rs = { 1.00f, 0.68f, 0.40f, 0.20f };
+        float[] al = { 0.06f, 0.12f, 0.22f, 0.50f };
         for (int i = 0; i < rs.Length; i++)
         {
             float h = rs[i] * 0.5f;
@@ -332,6 +379,11 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
             ri.color  = new Color(DrumMagenta.r, DrumMagenta.g, DrumMagenta.b, al[i]);
             ri.raycastTarget = false;
         }
+
+        // Merkez nokta
+        var dot = Panel("CenterDot", padGO.transform, DrumMagenta,
+            0.495f, 0.505f, 0.44f, 0.56f);
+        dot.GetComponent<Image>().sprite = CircleSprite(32);
 
         return root;
     }
