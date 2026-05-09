@@ -171,6 +171,7 @@ public class AccessibilityManager : MonoBehaviour
     public void PlayEarcon(EarconType type)
     {
         if (!accessibilityEnabled || earconSource == null) return;
+        if (!gameObject.activeInHierarchy) return;  // inactive ise coroutine baslatma
 
         AudioClip clip = type switch
         {

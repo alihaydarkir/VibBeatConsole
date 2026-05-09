@@ -346,8 +346,12 @@ public class VibeBeatBootstrap : MonoBehaviour
         if (soundStudioScreen == null)
         { Debug.LogWarning("[BOOTSTRAP] SoundStudioScreen null!"); return; }
 
-        // Geri butonu
-        BindBtn(soundStudioScreen.transform, "BackToMainButton", ShowMainConsole);
+        // Geri butonu — TopBar icinde
+        Transform studioTopBar = soundStudioScreen.transform.Find("TopBar");
+        if (studioTopBar != null)
+            BindBtn(studioTopBar, "BackToMainButton", ShowMainConsole);
+        else
+            BindBtn(soundStudioScreen.transform, "BackToMainButton", ShowMainConsole);
 
         // Uygula butonu
         BindBtn(soundStudioScreen.transform, "ApplyButton", () =>
