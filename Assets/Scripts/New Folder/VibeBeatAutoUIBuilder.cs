@@ -279,11 +279,15 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
         Txt(topBar, "TitleB", "BEAT", 30, GuitarCyan, Anchor.Left,  0.26f, 0.50f, 0.1f, 0.9f, bold:true);
         Txt(topBar, "TitleC", "CONSOLE",24,Hex("#8855FF"),Anchor.Left,0.50f,0.75f,0.1f,0.9f, bold:true);
 
-        // Ses studyosu butonu (nota ikonu)
-        var studioBtn = Panel("StudioButton", topBar.transform, Color.clear,
-            0.76f, 0.88f, 0.05f, 0.95f);
-        studioBtn.AddComponent<Button>().transition = Selectable.Transition.None;
-        Txt(studioBtn, "Icon", "SES", 18, Hex("#FF9500"), Anchor.Center, 0f,1f,0f,1f, bold:true);
+        // Ses studyosu butonu — turuncu cerceveli, belirgin
+        var studioPanel = Panel("StudioButton", topBar.transform, Hex("#1A1000"),
+            0.74f, 0.88f, 0.08f, 0.92f);
+        studioPanel.AddComponent<Button>().transition = Selectable.Transition.None;
+        // Ince turuncu sinir
+        Panel("StudioBorder", studioPanel.transform, Hex("#FF9500"),
+            0f, 1f, 0.93f, 1f);
+        Txt(studioPanel, "Icon", "SES", 20, Hex("#FF9500"),
+            Anchor.Center, 0f,1f,0f,1f, bold:true);
 
         // Settings butonu
         var settBtn = Panel("SettingsButton", topBar.transform, Color.clear,
