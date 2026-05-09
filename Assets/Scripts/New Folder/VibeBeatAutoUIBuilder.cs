@@ -66,12 +66,14 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
         sm.calibrationScreen = calib;
         sm.mainConsoleScreen = main;
         sm.settingsScreen    = sett;
+        sm.soundStudioScreen = studio;
 
         splash.SetActive(true);
         onboard.SetActive(false);
         calib.SetActive(false);
         main.SetActive(false);
         sett.SetActive(false);
+        studio.SetActive(false);
 
 #if UNITY_EDITOR
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
