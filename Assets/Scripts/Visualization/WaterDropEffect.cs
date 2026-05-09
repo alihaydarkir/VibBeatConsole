@@ -54,7 +54,7 @@ public class WaterDropEffect : MonoBehaviour
     private void BuildPool()
     {
         ringObjects = new GameObject[poolSize];
-        ringImages  = new Image[poolSize];
+        ringImages  = new CircleImage[poolSize];
         ringRects   = new RectTransform[poolSize];
 
         for (int i = 0; i < poolSize; i++)
