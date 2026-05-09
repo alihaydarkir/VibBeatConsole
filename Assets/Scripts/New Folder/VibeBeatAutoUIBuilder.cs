@@ -59,6 +59,7 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
         var calib   = CalibrationScreen(canvas.transform);
         var main    = MainConsoleScreen(canvas.transform);
         var sett    = SettingsScreen(canvas.transform);
+        var studio  = SoundStudioScreen(canvas.transform);
 
         sm.splashScreen      = splash;
         sm.onboardingScreen  = onboard;
@@ -275,6 +276,12 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
         Txt(topBar, "TitleA", "VIBE", 30, TextWhite, Anchor.Left,   0.05f, 0.28f, 0.1f, 0.9f, bold:true);
         Txt(topBar, "TitleB", "BEAT", 30, GuitarCyan, Anchor.Left,  0.26f, 0.50f, 0.1f, 0.9f, bold:true);
         Txt(topBar, "TitleC", "CONSOLE",24,Hex("#8855FF"),Anchor.Left,0.50f,0.75f,0.1f,0.9f, bold:true);
+
+        // Ses studyosu butonu (nota ikonu)
+        var studioBtn = Panel("StudioButton", topBar.transform, Color.clear,
+            0.76f, 0.88f, 0.05f, 0.95f);
+        studioBtn.AddComponent<Button>().transition = Selectable.Transition.None;
+        Txt(studioBtn, "Icon", "SES", 18, Hex("#FF9500"), Anchor.Center, 0f,1f,0f,1f, bold:true);
 
         // Settings butonu
         var settBtn = Panel("SettingsButton", topBar.transform, Color.clear,

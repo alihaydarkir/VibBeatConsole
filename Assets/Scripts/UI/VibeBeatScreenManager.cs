@@ -13,6 +13,7 @@ public class VibeBeatScreenManager : MonoBehaviour
     [HideInInspector] public GameObject calibrationScreen;
     [HideInInspector] public GameObject mainConsoleScreen;
     [HideInInspector] public GameObject settingsScreen;
+    [HideInInspector] public GameObject soundStudioScreen;
 
     [Header("Geçiş Süresi")]
     [SerializeField] private float fadeDuration = 0.4f;
@@ -23,13 +24,15 @@ public class VibeBeatScreenManager : MonoBehaviour
 
     // ─────────────────────────────────────────
     public void Init(GameObject splash, GameObject onboard, GameObject calib,
-                     GameObject main, GameObject settings)
+                     GameObject main, GameObject settings,
+                     GameObject studio = null)
     {
         splashScreen      = splash;
         onboardingScreen  = onboard;
         calibrationScreen = calib;
         mainConsoleScreen = main;
         settingsScreen    = settings;
+        soundStudioScreen = studio;
         initialized       = true;
 
         CreateOverlay();
@@ -67,6 +70,7 @@ public class VibeBeatScreenManager : MonoBehaviour
     public void ShowCalibration()  => Fade(calibrationScreen, "Kalibrasyon. Sol elinizi telefon ışık sensörünün üzerine kapatın.");
     public void ShowMainConsole()  => Fade(mainConsoleScreen, "Müzik konsolu. Sol bölge gitar, sağ üst piyano, sağ alt davul.");
     public void ShowSettings()     => Fade(settingsScreen,    "Ayarlar.");
+    public void ShowSoundStudio()  => Fade(soundStudioScreen, "Ses studyosu. Gitar, piyano ve davul seslerinizi secin.");
 
     // ─────────────────────────────────────────
     // FADE CORE
@@ -117,6 +121,7 @@ public class VibeBeatScreenManager : MonoBehaviour
         SetActive(calibrationScreen, calibrationScreen == target);
         SetActive(mainConsoleScreen, mainConsoleScreen == target);
         SetActive(settingsScreen,    settingsScreen    == target);
+        SetActive(soundStudioScreen, soundStudioScreen == target);
     }
 
     private void SetActive(GameObject go, bool active)
