@@ -183,28 +183,17 @@ public class VisualizationController : MonoBehaviour
         keyIndex = Mathf.Clamp(keyIndex, 0, 3);
         Color noteColor = noteColors[keyIndex];
 
-        // 1. Image renk flash
+        // 1. Scale press efekti (renk flash kaldirildi — Ripple yeterli)
         if (pianoKeyImages != null && keyIndex < pianoKeyImages.Length
             && pianoKeyImages[keyIndex] != null)
         {
             Image keyImg = pianoKeyImages[keyIndex];
-
-            keyImg.DOKill();  // önceki tween varsa iptal et
-
-            // Renk: nota rengine flash → eski renge dön
-            keyImg.DOColor(noteColor, 0.05f)
-                .SetEase(Ease.OutQuart)
-                .OnComplete(() =>
-                    keyImg.DOColor(NeutralDark, 0.35f).SetEase(Ease.InCubic)
-                );
-
-            // Scale: hafif press efekti
             keyImg.rectTransform.DOKill();
             keyImg.rectTransform
-                .DOScale(0.94f, 0.06f)
+                .DOScale(0.92f, 0.06f)
                 .SetEase(Ease.OutQuart)
                 .OnComplete(() =>
-                    keyImg.rectTransform.DOScale(1f, 0.2f).SetEase(Ease.OutBack)
+                    keyImg.rectTransform.DOScale(1f, 0.18f).SetEase(Ease.OutBack)
                 );
         }
 

@@ -37,6 +37,12 @@ public class RippleEffect : MonoBehaviour
     [Tooltip("Halka bitis alpha degeri. 0 = tamamen kaybolur")]
     [SerializeField] [Range(0.0f, 0.3f)] private float endAlpha      = 0f;
 
+    [Tooltip("Her basista kac halka cikar (1=tek, 2=cift, 3=uclu)")]
+    [SerializeField] [Range(1, 5)] private int ringCount = 1;
+
+    [Tooltip("Halkalar arasi gecikme (saniye). Dusuk = birbirine yakin)")]
+    [SerializeField] [Range(0.05f, 0.5f)] private float ringDelay    = 0.2f;
+
     // Renk paleti
     public static readonly Color ColorPianoDo = new Color(1.00f, 0.65f, 0.00f, 1f);
     public static readonly Color ColorPianoRe = new Color(0.80f, 0.90f, 0.00f, 1f);
@@ -126,7 +132,7 @@ public class RippleEffect : MonoBehaviour
             canvasRect, screenPos, cam, out localPos);
 
         for (int r = 0; r < ringCount; r++)
-            SpawnSingle(localPos, color, duration, r * duration * 0.35f);
+            SpawnSingle(localPos, color, duration, r * ringDelay);
     }
 
     /// <summary>
@@ -149,17 +155,17 @@ public class RippleEffect : MonoBehaviour
     {
         Color[] c = { ColorPianoDo, ColorPianoRe, ColorPianoMi, ColorPianoFa };
         Color col = (keyIndex >= 0 && keyIndex < c.Length) ? c[keyIndex] : ColorPianoDo;
-        SpawnFromWorld(worldPos, col, expansionSpeed, 2);
+        SpawnFromWorld(worldPos, col, expansionSpeed, ringCount);
     }
 
     public void SpawnDrum(Vector3 worldPos)
     {
-        SpawnFromWorld(worldPos, ColorDrum, expansionSpeed * 0.85f, 3);
+        SpawnFromWorld(worldPos, ColorDrum, expansionSpeed * 0.85f, ringCount);
     }
 
     public void SpawnGuitar(Vector3 worldPos)
     {
-        SpawnFromWorld(worldPos, ColorGuitar, expansionSpeed * 1.8f, 1);
+        SpawnFromWorld(worldPos, ColorGuitar, expansionSpeed * 1.8f, ringCount);
     }
 
     // ─────────────────────────────────────────
