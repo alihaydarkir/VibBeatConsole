@@ -282,7 +282,9 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
         // Ses studyosu butonu — turuncu cerceveli, belirgin
         var studioPanel = Panel("StudioButton", topBar.transform, Hex("#1A1000"),
             0.74f, 0.88f, 0.08f, 0.92f);
-        studioPanel.AddComponent<Button>().transition = Selectable.Transition.None;
+        var studioBtn = studioPanel.AddComponent<Button>();
+        studioBtn.transition = Selectable.Transition.None;
+        studioBtn.onClick.AddListener(sm.ShowSoundStudio);
         // Ince turuncu sinir
         Panel("StudioBorder", studioPanel.transform, Hex("#FF9500"),
             0f, 1f, 0.93f, 1f);

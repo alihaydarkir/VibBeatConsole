@@ -32,6 +32,7 @@ public class VibBeatMasterController : MonoBehaviour
     private bool  isRunning            = false;
     private float normalizedSensor      = 0f;
     private GuitarWaveVisualizer guitarWave = null;
+    private HandWaveVisualizer handWave = null;
 
     // ─────────────────────────────────────────
     // AWAKE — bağımlılıkları otomatik bul
@@ -45,6 +46,7 @@ public class VibBeatMasterController : MonoBehaviour
         hapticManager       = FindAndLog<HapticFeedbackManager>("HapticFeedbackManager");
         visualController    = FindAndLog<VisualizationController>("VisualizationController");
         guitarWave          = FindAndLog<GuitarWaveVisualizer>("GuitarWaveVisualizer");
+        handWave            = FindFirstObjectByType<HandWaveVisualizer>();
     }
 
     private T FindAndLog<T>(string label) where T : MonoBehaviour
@@ -115,6 +117,7 @@ public class VibBeatMasterController : MonoBehaviour
 
         // Her zaman gitar dalgasini besle (mute olsa da donuk dalga gosterilsin)
         guitarWave?.SetSensorValue(normalized);
+        handWave?.SetSensorValue(normalized);
     }
 
     // ─────────────────────────────────────────

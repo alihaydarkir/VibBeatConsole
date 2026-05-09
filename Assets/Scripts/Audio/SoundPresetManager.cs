@@ -73,7 +73,7 @@ public class SoundPresetManager : MonoBehaviour
             synth.SetPianoClips(selected);
         }
 
-        if (drumClips != null && drumIndex < drumClips.Length)
+        if (drumClips != null && drumClips.Length > 0 && drumIndex >= 0 && drumIndex < drumClips.Length)
             synth.SetDrumClip(drumClips[drumIndex]);
     }
 
@@ -82,6 +82,7 @@ public class SoundPresetManager : MonoBehaviour
     // ─────────────────────────────────────────
     public void SetGuitarIndex(int idx)
     {
+        if (guitarClips == null || guitarClips.Length == 0) return;
         guitarIndex = Mathf.Clamp(idx, 0, guitarClips.Length - 1);
         SavePrefs();
         ApplyToSynthesizer();
@@ -91,6 +92,7 @@ public class SoundPresetManager : MonoBehaviour
 
     public void SetPianoNote(int noteSlot, int clipIdx)
     {
+        if (pianoClips == null || pianoClips.Length == 0) return;
         pianoIndexes[noteSlot] = Mathf.Clamp(clipIdx, 0, pianoClips.Length - 1);
         SavePrefs();
         ApplyToSynthesizer();
@@ -101,6 +103,7 @@ public class SoundPresetManager : MonoBehaviour
 
     public void SetDrumIndex(int idx)
     {
+        if (drumClips == null || drumClips.Length == 0) return;
         drumIndex = Mathf.Clamp(idx, 0, drumClips.Length - 1);
         SavePrefs();
         ApplyToSynthesizer();

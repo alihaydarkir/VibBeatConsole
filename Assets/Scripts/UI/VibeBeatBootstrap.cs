@@ -140,7 +140,10 @@ public class VibeBeatBootstrap : MonoBehaviour
         // TopBar
         Transform topBar = mainConsoleScreen.transform.Find("TopBar");
         if (topBar != null)
+        {
             BindBtn(topBar, "SettingsButton", ShowSettings);
+            BindBtn(topBar, "StudioButton",  ShowSoundStudio);
+        }
         else
             Debug.LogWarning("[BOOTSTRAP] TopBar bulunamadı!");
 
