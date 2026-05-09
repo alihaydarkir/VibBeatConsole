@@ -236,154 +236,174 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
     private GameObject MainConsoleScreen(Transform parent)
     {
         var root = FullScreen("MainConsoleScreen", parent, BgDeep);
-        TopBar(root.transform, settings: true, back: false, dots: false);
 
-        // ── GİTAR PANEL (sol %29) — referans tasarima gore ───────────────
-        // Yumusak koseli sinirli panel
+        // TopBar ince ve kompakt — ekrani yemiyor
+        var topBar = Panel("TopBar", root.transform, Hex("#060C16"),
+            0f, 1f, 0.905f, 1f);
+        Txt(topBar, "TitleA", "VIBE", 30, TextWhite, Anchor.Left,   0.05f, 0.28f, 0.1f, 0.9f, bold:true);
+        Txt(topBar, "TitleB", "BEAT", 30, GuitarCyan, Anchor.Left,  0.26f, 0.50f, 0.1f, 0.9f, bold:true);
+        Txt(topBar, "TitleC", "CONSOLE",24,Hex("#8855FF"),Anchor.Left,0.50f,0.75f,0.1f,0.9f, bold:true);
+
+        // Settings butonu
+        var settBtn = Panel("SettingsButton", topBar.transform, Color.clear,
+            0.88f, 0.98f, 0.05f, 0.95f);
+        settBtn.AddComponent<Button>().transition = Selectable.Transition.None;
+        Txt(settBtn, "Icon", "⚙", 28, TextGray, Anchor.Center, 0f,1f,0f,1f);
+
+        // Aktif dot
+        Panel("ActiveDot", topBar.transform, Hex("#00FF88"),
+            0.955f, 0.975f, 0.35f, 0.65f)
+            .GetComponent<Image>().sprite = CircleSprite(16);
+
+        // ── GUTAR PANEL (sol) ────────────────────────────────────────────
         var gPanel = Panel("GuitarPanel", root.transform, BgSurface,
-            0.010f, 0.292f, 0.035f, 0.960f);
+            0.008f, 0.300f, 0.025f, 0.898f);
 
-        // Ust: ikon alani + baslik
-        Panel("GuitarHeader", gPanel.transform, Hex("#0D2030"), 0f, 1f, 0.88f, 1f);
-        Txt(gPanel, "TitleIcon",    "♪",          36, GuitarCyan, Anchor.Left,   0.06f, 0.22f, 0.89f, 0.99f);
-        Txt(gPanel, "TitleText",    "GUITAR",      42, GuitarCyan, Anchor.Left,   0.22f, 0.95f, 0.89f, 0.99f, bold: true);
+        // Baslik
+        Txt(gPanel, "TitleText", "GUITAR", 36, GuitarCyan,
+            Anchor.Center, 0.05f, 0.95f, 0.88f, 0.97f, bold:true);
 
-        // Sensor degeri - buyuk ve belirgin
-        Txt(gPanel, "SensorLabel",    "SENSOR SEVIYESI", 18, TextGray,  Anchor.Center, 0.05f, 0.95f, 0.81f, 0.88f);
-        Txt(gPanel, "SensorValueText","0.00",             62, TextWhite, Anchor.Center, 0.05f, 0.95f, 0.67f, 0.81f, bold: true);
+        // Sensor label + deger
+        Txt(gPanel, "SensorLabel",    "SENSOR SEVIYESI", 17, TextGray,
+            Anchor.Center, 0.05f, 0.95f, 0.81f, 0.88f);
+        Txt(gPanel, "SensorValueText","0.00", 56, TextWhite,
+            Anchor.Center, 0.05f, 0.95f, 0.68f, 0.81f, bold:true);
 
-        // Skala cizgileri (sol kenar) — referanstaki gibi
-        for (int s = 0; s <= 4; s++)
+        // Skala cizgileri — solda
+        string[] scaleLabels = {"- 1.0", "", "- 0.5", "", "- 0.0"};
+        for (int s = 0; s < 5; s++)
         {
-            float sy = 0.28f + s * 0.09f;
-            Panel("Scale_" + s, gPanel.transform, Hex("#1E3A50"), 0.03f, 0.12f, sy, sy + 0.002f);
-            string lbl = s == 0 ? "0.0" : s == 2 ? "0.5" : s == 4 ? "1.0" : "";
-            if (lbl != "")
-                Txt(gPanel, "ScaleLbl_" + s, lbl, 16, TextGray, Anchor.Right,
-                    0.01f, 0.14f, sy - 0.02f, sy + 0.04f);
+            float sy = 0.63f - s * 0.088f;
+            // Cizgi
+            Panel("ScaleLine_"+s, gPanel.transform, Hex("#1A3348"),
+                0.02f, 0.14f, sy, sy + 0.003f);
+            if (scaleLabels[s] != "")
+                Txt(gPanel, "ScaleLbl_"+s, scaleLabels[s], 15, Hex("#4A7090"),
+                    Anchor.Left, 0.02f, 0.38f, sy-0.025f, sy+0.035f);
         }
 
-        // Dalga alani — WaveformArea, VisualizationController buraya cizer
-        var waveArea = Panel("WaveformArea", gPanel.transform, Hex("#090F1A"),
-            0.12f, 0.92f, 0.28f, 0.64f);
+        // Dalga alani
+        Panel("WaveformArea", gPanel.transform, Hex("#07101A"),
+            0.15f, 0.95f, 0.27f, 0.65f);
 
-        // Butonlar — buyuk ve belirgin
-        var calBtn = GlowBtn(gPanel.transform, "CalibrateButton", "⊙  KALIBRE ET",
-            GuitarCyan, 0.06f, 0.94f, 0.13f, 0.25f);
+        // Butonlar
+        var calBtn = GlowBtn(gPanel.transform, "CalibrateButton", "KALIBRE ET",
+            GuitarCyan, 0.07f, 0.93f, 0.13f, 0.24f);
         calBtn.onClick.AddListener(sm.ShowCalibration);
 
         var muteGO = Panel("MuteButton", gPanel.transform, Passive,
-            0.06f, 0.94f, 0.01f, 0.12f);
-        var muteBtn = muteGO.AddComponent<Button>();
-        muteBtn.transition = Selectable.Transition.None;
-        Txt(muteGO, "Label", "◁×  MUTE", 24, TextGray, Anchor.Center, 0f, 1f, 0f, 1f, bold: true);
+            0.07f, 0.93f, 0.01f, 0.12f);
+        muteGO.AddComponent<Button>().transition = Selectable.Transition.None;
+        Txt(muteGO, "Label", "MUTE", 22, TextGray, Anchor.Center, 0f,1f,0f,1f, bold:true);
 
-        // Sinir parlama efekti — sol panel sag kenari
-        Panel("VSep", root.transform, Hex("#00E5FF18"), 0.290f, 0.294f, 0.035f, 0.960f);
-        Panel("VSepGlow", root.transform, Hex("#00E5FF08"), 0.286f, 0.298f, 0.035f, 0.960f);
+        // Cyan glow separator
+        Panel("VSep1", root.transform, Hex("#00E5FF30"), 0.298f, 0.302f, 0.025f, 0.898f);
+        Panel("VSep2", root.transform, Hex("#00E5FF0A"), 0.294f, 0.308f, 0.025f, 0.898f);
 
-        // ── SAG PANEL ─────────────────────────────────────────────────────
-        var right = EmptyRect("RightPanel", root.transform, 0.300f, 0.990f, 0.035f, 0.960f);
+        // ── SAG PANEL ────────────────────────────────────────────────────
+        var right = EmptyRect("RightPanel", root.transform,
+            0.308f, 0.992f, 0.025f, 0.898f);
 
-        // ── PIANO alani (sag ust %50) ─────────────────────────────────────
-        var pPanel = Panel("PianoPanel", right.transform, BgSurface, 0f, 1f, 0.520f, 1f);
-        Panel("PianoHeader", pPanel.transform, Hex("#1A1200"), 0f, 1f, 0.85f, 1f);
-        Txt(pPanel, "TitleIcon", "⬛", 28, PianoOrange, Anchor.Left, 0.02f, 0.12f, 0.86f, 0.99f);
-        Txt(pPanel, "TitleText", "PIANO", 38, PianoOrange, Anchor.Left,
-            0.12f, 0.60f, 0.84f, 0.99f, bold: true);
+        // ── PIANO (ust %47) ───────────────────────────────────────────────
+        var pPanel = Panel("PianoPanel", right.transform, BgSurface,
+            0f, 1f, 0.535f, 1f);
 
-        string[] notes = { "C4", "D4", "E4", "F4" };
-        string[] noteLabels = { "Do", "Re", "Mi", "Fa" };
-        Color[] noteColors  = {
-            Hex("#FF9500"), Hex("#FFD700"), Hex("#00BFFF"), Hex("#BF5FFF")
+        // Baslik satiri
+        Txt(pPanel, "TitleText", "PIANO", 32, PianoOrange,
+            Anchor.Left, 0.03f, 0.55f, 0.84f, 0.98f, bold:true);
+
+        string[] notes      = {"C4","D4","E4","F4"};
+        string[] noteLabels = {"Do","Re","Mi","Fa"};
+        Color[]  noteColors = {
+            Hex("#FF9500"), Hex("#FFD700"), Hex("#00BFFF"), Hex("#C060FF")
         };
 
         for (int i = 0; i < 4; i++)
         {
-            float kx0 = 0.015f + i * 0.246f;
-            float kx1 = kx0 + 0.230f;
-            Color nc = noteColors[i];
+            float kx0 = 0.012f + i * 0.247f;
+            float kx1 = kx0 + 0.232f;
+            Color nc  = noteColors[i];
 
-            // Kart — ince renkli sinirli
-            var key = Panel("PianoKey_" + notes[i], pPanel.transform,
-                BgCard, kx0, kx1, 0.06f, 0.82f);
-            var kb = key.AddComponent<Button>();
-            kb.transition = Selectable.Transition.None;
+            var key = Panel("PianoKey_"+notes[i], pPanel.transform,
+                BgCard, kx0, kx1, 0.06f, 0.81f);
+            key.AddComponent<Button>().transition = Selectable.Transition.None;
 
-            // Ince renk siniri (ust)
-            Panel("TopBorder_" + i, key.transform,
-                new Color(nc.r, nc.g, nc.b, 0.6f), 0f, 1f, 0.96f, 1f);
+            // Renkli ust sinir
+            Panel("TopBorder", key.transform,
+                new Color(nc.r, nc.g, nc.b, 0.8f), 0f, 1f, 0.955f, 1f);
 
-            // Arka plan resim slotu
-            var bgImg = EmptyRect("BgImage", key.transform, 0f, 1f, 0f, 1f);
-            var bgImgComp = bgImg.AddComponent<Image>();
-            bgImgComp.color = new Color(1f, 1f, 1f, 0.15f);
-            bgImgComp.preserveAspect = true;
-            bgImgComp.raycastTarget = false;
+            // BgImage slotu
+            var bgi = EmptyRect("BgImage", key.transform, 0f,1f,0f,1f);
+            var bgiC = bgi.AddComponent<Image>();
+            bgiC.color = new Color(1f,1f,1f,0.12f);
+            bgiC.preserveAspect = true;
+            bgiC.raycastTarget  = false;
 
-            // Dikey ince cizgi
-            Panel("Line", key.transform, new Color(nc.r, nc.g, nc.b, 0.12f),
-                0.44f, 0.56f, 0.12f, 0.88f);
+            // Ince orta cizgi
+            Panel("Line", key.transform,
+                new Color(nc.r, nc.g, nc.b, 0.15f), 0.44f, 0.56f, 0.15f, 0.85f);
 
-            // Alt nota ismi
-            Txt(key, "NoteLabel", noteLabels[i], 26,
-                new Color(nc.r, nc.g, nc.b, 0.9f),
-                Anchor.Center, 0f, 1f, 0.01f, 0.20f, bold: true);
+            // Not ismi — altta, renkli
+            Txt(key, "NoteLabel", noteLabels[i], 24,
+                new Color(nc.r, nc.g, nc.b, 1f),
+                Anchor.Center, 0f,1f, 0.02f, 0.22f, bold:true);
         }
 
-        // Separator
-        Panel("HSep", right.transform, Hex("#FFFFFF0A"), 0f, 1f, 0.514f, 0.520f);
+        // Ayirici
+        Panel("HSep", right.transform, Hex("#FFFFFF08"), 0f,1f, 0.528f, 0.534f);
 
-        // ── DAVUL alani (sag alt %50) ─────────────────────────────────────
-        var dPanel = Panel("DrumPanel", right.transform, BgSurface, 0f, 1f, 0f, 0.508f);
-        Panel("DrumHeader", dPanel.transform, Hex("#1A0010"), 0f, 1f, 0.82f, 1f);
-        Txt(dPanel, "TitleIcon", "⬤", 22, DrumMagenta, Anchor.Left, 0.02f, 0.10f, 0.84f, 0.99f);
-        Txt(dPanel, "TitleText", "DRUM", 38, DrumMagenta, Anchor.Left,
-            0.10f, 0.55f, 0.82f, 0.99f, bold: true);
+        // ── DRUM (alt %52) ─────────────────────────────────────────────────
+        var dPanel = Panel("DrumPanel", right.transform, BgSurface,
+            0f, 1f, 0f, 0.522f);
 
-        // DrumPad — tum alan
+        // Baslik — kompakt
+        Txt(dPanel, "TitleText", "DRUM", 32, DrumMagenta,
+            Anchor.Left, 0.03f, 0.45f, 0.84f, 0.97f, bold:true);
+
+        // DrumPad — alt %83 (baslik icin yer birak)
         var padGO = Panel("DrumPad", dPanel.transform, BgCard,
-            0.01f, 0.99f, 0.01f, 0.80f);
-        var padBtn = padGO.AddComponent<Button>();
-        padBtn.transition = Selectable.Transition.None;
+            0.01f, 0.99f, 0.01f, 0.82f);
+        padGO.AddComponent<Button>().transition = Selectable.Transition.None;
 
-        // Ust magenta sinir
+        // Magenta ust sinir
         Panel("TopBorder", padGO.transform,
-            new Color(DrumMagenta.r, DrumMagenta.g, DrumMagenta.b, 0.5f),
+            new Color(DrumMagenta.r, DrumMagenta.g, DrumMagenta.b, 0.7f),
             0f, 1f, 0.97f, 1f);
 
-        // Arka plan resim slotu
-        var drumBgImg = EmptyRect("BgImage", padGO.transform, 0f, 1f, 0f, 1f);
-        var drumBgComp = drumBgImg.AddComponent<Image>();
-        drumBgComp.color = new Color(1f, 1f, 1f, 0.12f);
-        drumBgComp.preserveAspect = true;
-        drumBgComp.raycastTarget = false;
+        // BgImage slotu
+        var dbi = EmptyRect("BgImage", padGO.transform, 0f,1f,0f,1f);
+        var dbiC = dbi.AddComponent<Image>();
+        dbiC.color = new Color(1f,1f,1f,0.10f);
+        dbiC.preserveAspect = true;
+        dbiC.raycastTarget  = false;
 
-        // Statik halka dekorasyonu (arkaplan, animasyonsuz)
-        var rh = EmptyRect("RingHolder", padGO.transform, 0.5f, 0.5f, 0.5f, 0.5f);
-        rh.GetComponent<RectTransform>().sizeDelta = new Vector2(180f, 90f);
+        // Elliptik halka dekorasyonu — referanstaki gibi yatay oval
+        var rh = EmptyRect("RingHolder", padGO.transform, 0.5f,0.5f,0.5f,0.5f);
+        var rhRT = rh.GetComponent<RectTransform>();
+        rhRT.sizeDelta = new Vector2(300f, 130f);
 
-        float[] rs = { 1.00f, 0.68f, 0.40f, 0.20f };
-        float[] al = { 0.06f, 0.12f, 0.22f, 0.50f };
-        for (int i = 0; i < rs.Length; i++)
+        float[] ringScales = {1.00f, 0.72f, 0.48f, 0.28f, 0.14f};
+        float[] ringAlphas = {0.05f, 0.10f, 0.20f, 0.38f, 0.70f};
+        for (int i = 0; i < ringScales.Length; i++)
         {
-            float h = rs[i] * 0.5f;
-            var ring = new GameObject("Ring_" + i);
+            float h = ringScales[i] * 0.5f;
+            var ring  = new GameObject("Ring_"+i);
             ring.transform.SetParent(rh.transform, false);
             var rRT = ring.AddComponent<RectTransform>();
-            rRT.anchorMin = new Vector2(0.5f - h, 0.5f - h);
-            rRT.anchorMax = new Vector2(0.5f + h, 0.5f + h);
+            rRT.anchorMin = new Vector2(0.5f-h, 0.5f-h);
+            rRT.anchorMax = new Vector2(0.5f+h, 0.5f+h);
             rRT.offsetMin = rRT.offsetMax = Vector2.zero;
             var ri = ring.AddComponent<Image>();
             ri.sprite = CircleSprite(128);
-            ri.color  = new Color(DrumMagenta.r, DrumMagenta.g, DrumMagenta.b, al[i]);
+            ri.color  = new Color(DrumMagenta.r, DrumMagenta.g, DrumMagenta.b, ringAlphas[i]);
             ri.raycastTarget = false;
         }
 
-        // Merkez nokta
-        var dot = Panel("CenterDot", padGO.transform, DrumMagenta,
-            0.495f, 0.505f, 0.44f, 0.56f);
+        // Parlak merkez nokta
+        var dot = Panel("CenterDot", padGO.transform, Color.white,
+            0.490f, 0.510f, 0.430f, 0.570f);
         dot.GetComponent<Image>().sprite = CircleSprite(32);
+        dot.GetComponent<Image>().color  = new Color(1f, 0.3f, 0.7f, 1f);
 
         return root;
     }
