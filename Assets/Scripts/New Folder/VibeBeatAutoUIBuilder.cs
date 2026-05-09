@@ -248,7 +248,7 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
         var settBtn = Panel("SettingsButton", topBar.transform, Color.clear,
             0.88f, 0.98f, 0.05f, 0.95f);
         settBtn.AddComponent<Button>().transition = Selectable.Transition.None;
-        Txt(settBtn, "Icon", "⚙", 28, TextGray, Anchor.Center, 0f,1f,0f,1f);
+        Txt(settBtn, "Icon", "[S]", 28, TextGray, Anchor.Center, 0f,1f,0f,1f);
 
         // Aktif dot
         Panel("ActiveDot", topBar.transform, Hex("#00FF88"),
