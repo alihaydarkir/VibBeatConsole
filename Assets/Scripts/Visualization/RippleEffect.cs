@@ -22,8 +22,20 @@ public class RippleEffect : MonoBehaviour
 
     [Header("Ripple Ayarlari")]
     [SerializeField] private Canvas targetCanvas;
-    [SerializeField] private int   poolSize     = 10;
-    [SerializeField] private float ringThickness = 8f;
+    [SerializeField] private int   poolSize     = 12;
+
+    [Header("Gorsel Parametreler")]
+    [Tooltip("Halkalar ekrani kac saniyede kaplar. Dusuk = hizli, Yuksek = yavas")]
+    [SerializeField] [Range(0.2f, 2.0f)] private float expansionSpeed = 0.6f;
+
+    [Tooltip("Halka kalinligi orani (0=cizgi, 1=dolu daire). 0.15 = ince halka")]
+    [SerializeField] [Range(0.05f, 0.5f)] private float ringWidth     = 0.15f;
+
+    [Tooltip("Baslangic alpha degeri (0-1). Dusuk = soluk, Yuksek = canli)")]
+    [SerializeField] [Range(0.1f, 1.0f)] private float startAlpha    = 0.75f;
+
+    [Tooltip("Halka bitis alpha degeri. 0 = tamamen kaybolur")]
+    [SerializeField] [Range(0.0f, 0.3f)] private float endAlpha      = 0f;
 
     // Renk paleti
     public static readonly Color ColorPianoDo = new Color(1.00f, 0.65f, 0.00f, 1f);
@@ -74,10 +86,11 @@ public class RippleEffect : MonoBehaviour
             go.transform.SetParent(canvasTransform, false);
             go.transform.SetAsLastSibling(); // her zaman en uste cizilsin
 
-            // CircleImage: OnPopulateMesh override ile gercek vektor dairesi
+            // CircleImage: ici bos halka (ring) — OnPopulateMesh override
             var img = go.AddComponent<CircleImage>();
-            img.color = Color.clear;
+            img.color        = Color.clear;
             img.raycastTarget = false;
+            // innerRadius SpawnSingle'da dinamik set edilir
 
             var rt = go.GetComponent<RectTransform>();
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
@@ -136,17 +149,17 @@ public class RippleEffect : MonoBehaviour
     {
         Color[] c = { ColorPianoDo, ColorPianoRe, ColorPianoMi, ColorPianoFa };
         Color col = (keyIndex >= 0 && keyIndex < c.Length) ? c[keyIndex] : ColorPianoDo;
-        SpawnFromWorld(worldPos, col, 0.65f, 2);
+        SpawnFromWorld(worldPos, col, expansionSpeed, 2);
     }
 
     public void SpawnDrum(Vector3 worldPos)
     {
-        SpawnFromWorld(worldPos, ColorDrum, 0.5f, 3);
+        SpawnFromWorld(worldPos, ColorDrum, expansionSpeed * 0.85f, 3);
     }
 
     public void SpawnGuitar(Vector3 worldPos)
     {
-        SpawnFromWorld(worldPos, ColorGuitar, 1.1f, 1);
+        SpawnFromWorld(worldPos, ColorGuitar, expansionSpeed * 1.8f, 1);
     }
 
     // ─────────────────────────────────────────
@@ -181,21 +194,26 @@ public class RippleEffect : MonoBehaviour
         ) / targetCanvas.scaleFactor;
         float maxSize = screenDiag * 2.5f; // ekrandan kesinlikle tasin
 
+        // innerRadius: dis yaricapin ne kadari ic bos (1 - ringWidth)
+        img.innerRadius = 1f - ringWidth;
+        img.SetVerticesDirty();  // yeni innerRadius ile mesh yeniden ciz
+
         Sequence seq = DOTween.Sequence();
         seq.AppendInterval(delay);
         seq.AppendCallback(() =>
         {
-            rt.sizeDelta = new Vector2(ringThickness, ringThickness);
-            img.color    = new Color(color.r, color.g, color.b, 0.9f);
+            float startSize = maxSize * 0.04f;  // baslangic boyutu: maksimumun %4u
+            rt.sizeDelta = new Vector2(startSize, startSize);
+            img.color    = new Color(color.r, color.g, color.b, startAlpha);
+            img.SetVerticesDirty();
         });
         seq.Append(
-            rt.DOSizeDelta(new Vector2(maxSize, maxSize), duration)
-              .SetEase(Ease.OutCubic)
+            rt.DOSizeDelta(new Vector2(maxSize, maxSize), expansionSpeed)
+              .SetEase(Ease.OutQuart)
         );
         seq.Join(
-            img.DOFade(0f, duration * 0.85f)
-               .SetDelay(duration * 0.15f)
-               .SetEase(Ease.InQuad)
+            img.DOFade(endAlpha, expansionSpeed)
+               .SetEase(Ease.OutQuad)
         );
         seq.AppendCallback(() =>
         {

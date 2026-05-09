@@ -1,18 +1,19 @@
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Sprite gerektirmeden kod ile daire cizen UI bileşeni.
-/// Image yerine kullanilir — OnPopulateMesh override ederek
-/// verilen segmentSayisi kadar ucgen ile dolu daire uretir.
-///
+/// Ici bos halka (ring) cizen UI bileseni.
+/// InnerRadius ile dis yaricap arasindaki alan dolu, ici bos.
 /// RippleEffect tarafindan kullanilir.
 /// </summary>
 public class CircleImage : Image
 {
-    [Range(16, 128)]
-    [SerializeField] private int segments = 64;  // daire yumusakligi
+    [Range(32, 128)]
+    public int segments = 64;
+
+    [Range(0f, 1f)]
+    [Tooltip("0 = tam dolu daire, 0.9 = ince halka, 0.7 = orta kalinlik")]
+    public float innerRadius = 0.75f;  // dis yaricapin yuzde kaci ic yaricap
 
     protected override void OnPopulateMesh(VertexHelper vh)
     {
@@ -20,34 +21,41 @@ public class CircleImage : Image
 
         float w = rectTransform.rect.width  * 0.5f;
         float h = rectTransform.rect.height * 0.5f;
-        float r = Mathf.Min(w, h);  // kare degilse kucuk kenarı kullan
+        float outerR = Mathf.Min(w, h);
+        float innerR = outerR * innerRadius;
 
-        // Merkez vertex
-        UIVertex center = UIVertex.simpleVert;
-        center.color    = color;
-        center.position = Vector3.zero;
-        center.uv0      = new Vector2(0.5f, 0.5f);
-        vh.AddVert(center);
+        float angleStep = 360f / segments * Mathf.Deg2Rad;
 
-        // Cevre vertexleri
-        float angleStep = 360f / segments;
-        for (int i = 0; i <= segments; i++)
+        for (int i = 0; i < segments; i++)
         {
-            float   angle = i * angleStep * Mathf.Deg2Rad;
-            float   x     = Mathf.Sin(angle) * r;
-            float   y     = Mathf.Cos(angle) * r;
+            float a0 = i       * angleStep;
+            float a1 = (i + 1) * angleStep;
 
-            UIVertex v = UIVertex.simpleVert;
-            v.color    = color;
-            v.position = new Vector3(x, y, 0f);
-            v.uv0      = new Vector2(x / r * 0.5f + 0.5f, y / r * 0.5f + 0.5f);
-            vh.AddVert(v);
-        }
+            // Dis cevre
+            Vector2 outerA = new Vector2(Mathf.Sin(a0) * outerR, Mathf.Cos(a0) * outerR);
+            Vector2 outerB = new Vector2(Mathf.Sin(a1) * outerR, Mathf.Cos(a1) * outerR);
+            // Ic cevre
+            Vector2 innerA = new Vector2(Mathf.Sin(a0) * innerR, Mathf.Cos(a0) * innerR);
+            Vector2 innerB = new Vector2(Mathf.Sin(a1) * innerR, Mathf.Cos(a1) * innerR);
 
-        // Ucgenler: merkez(0) + cevre[i] + cevre[i+1]
-        for (int i = 1; i <= segments; i++)
-        {
-            vh.AddTriangle(0, i, i + 1 > segments ? 1 : i + 1);
+            int base_ = i * 4;
+            vh.AddVert(ToVert(outerA)); // 0 dis sol
+            vh.AddVert(ToVert(outerB)); // 1 dis sag
+            vh.AddVert(ToVert(innerB)); // 2 ic sag
+            vh.AddVert(ToVert(innerA)); // 3 ic sol
+
+            // Iki ucgen = bir trapez dilimi
+            vh.AddTriangle(base_,     base_ + 1, base_ + 2);
+            vh.AddTriangle(base_,     base_ + 2, base_ + 3);
         }
+    }
+
+    private UIVertex ToVert(Vector2 pos)
+    {
+        UIVertex v = UIVertex.simpleVert;
+        v.color    = color;
+        v.position = new Vector3(pos.x, pos.y, 0f);
+        v.uv0      = new Vector2(pos.x + 0.5f, pos.y + 0.5f);
+        return v;
     }
 }
