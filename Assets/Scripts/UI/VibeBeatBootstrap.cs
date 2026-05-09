@@ -177,9 +177,7 @@ public class VibeBeatBootstrap : MonoBehaviour
                         else
                             Debug.LogError("[BOOTSTRAP] masterController NULL — piyano çalınamadı!");
 
-                        // WaterDrop — tus uzerinde su damlasi
-                        WaterDropEffect.Instance?.SpawnPianoDrop(
-                            key.transform.position, idx);
+                        // WaterDrop: TouchSpawnHandler hallediyor (dokunma noktasindan)
                     });
                     bound++;
                 }
@@ -205,9 +203,7 @@ public class VibeBeatBootstrap : MonoBehaviour
                     else
                         Debug.LogError("[BOOTSTRAP] masterController NULL — davul çalınamadı!");
 
-                    // WaterDrop — davul eliptik damla
-                    WaterDropEffect.Instance?.SpawnDrumDrop(
-                        padBtn.transform.position);
+                    // WaterDrop: TouchSpawnHandler hallediyor (dokunma noktasindan)
                 });
                 Debug.Log("[BOOTSTRAP] [OK] DrumPad bağlandı.");
             }
