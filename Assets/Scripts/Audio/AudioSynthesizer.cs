@@ -144,4 +144,28 @@ public class AudioSynthesizer : MonoBehaviour
 
     // --- Getters ---
     public float GetCurrentPitch() => currentPitch;
+
+    // --- SoundPresetManager tarafindan cagrilir ---
+    public void SetGuitarClip(AudioClip clip)
+    {
+        if (clip == null || guitarSource == null) return;
+        guitarLoop = clip;
+        guitarSource.clip = clip;
+        guitarSource.Play();
+        Debug.Log($"[AUDIO] Gitar sesi degisti: {clip.name}");
+    }
+
+    public void SetPianoClips(AudioClip[] clips)
+    {
+        if (clips == null) return;
+        pianoNotes = clips;
+        Debug.Log($"[AUDIO] Piyano sesleri guncellendi.");
+    }
+
+    public void SetDrumClip(AudioClip clip)
+    {
+        if (clip == null) return;
+        drumKick = clip;
+        Debug.Log($"[AUDIO] Davul sesi degisti: {clip.name}");
+    }
 }

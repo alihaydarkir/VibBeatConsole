@@ -24,6 +24,7 @@ public class VibeBeatBootstrap : MonoBehaviour
     private GameObject calibrationScreen;
     private GameObject mainConsoleScreen;
     private GameObject settingsScreen;
+    private GameObject soundStudioScreen;
 
     // ─────────────────────────────────────────
     // UI REFERANSLARI
@@ -57,15 +58,16 @@ public class VibeBeatBootstrap : MonoBehaviour
             Debug.Log("[BOOTSTRAP] [OK] MasterController bulundu.");
 
         Transform t      = transform;
-        splashScreen     = FindChild(t, "SplashScreen");
-        onboardingScreen = FindChild(t, "OnboardingScreen");
-        calibrationScreen= FindChild(t, "CalibrationScreen");
-        mainConsoleScreen= FindChild(t, "MainConsoleScreen");
-        settingsScreen   = FindChild(t, "SettingsScreen");
+        splashScreen      = FindChild(t, "SplashScreen");
+        onboardingScreen  = FindChild(t, "OnboardingScreen");
+        calibrationScreen = FindChild(t, "CalibrationScreen");
+        mainConsoleScreen = FindChild(t, "MainConsoleScreen");
+        settingsScreen    = FindChild(t, "SettingsScreen");
+        soundStudioScreen = FindChild(t, "SoundStudioScreen");
 
         // ScreenManager'a ekran referanslarını aktar
         screenManager?.Init(splashScreen, onboardingScreen, calibrationScreen,
-                            mainConsoleScreen, settingsScreen);
+                            mainConsoleScreen, settingsScreen, soundStudioScreen);
 
         LogScreenStatus();
 
@@ -85,7 +87,8 @@ public class VibeBeatBootstrap : MonoBehaviour
             $"Onboard:{onboardingScreen != null} " +
             $"Calib:{calibrationScreen != null} " +
             $"Main:{mainConsoleScreen != null} " +
-            $"Settings:{settingsScreen != null}");
+            $"Settings:{settingsScreen != null} " +
+            $"Studio:{soundStudioScreen != null}");
     }
 
     // ─────────────────────────────────────────
@@ -98,6 +101,7 @@ public class VibeBeatBootstrap : MonoBehaviour
         BindCalibration();
         BindMainConsole();
         BindSettings();
+        BindSoundStudio();
     }
 
     private void BindSplash()
@@ -329,6 +333,147 @@ public class VibeBeatBootstrap : MonoBehaviour
     {
         Debug.Log("[BOOTSTRAP] → SettingsScreen");
         screenManager?.ShowSettings();
+    }
+
+    public void ShowSoundStudio()
+    {
+        Debug.Log("[BOOTSTRAP] → SoundStudioScreen");
+        screenManager?.ShowSoundStudio();
+    }
+
+    private void BindSoundStudio()
+    {
+        if (soundStudioScreen == null)
+        { Debug.LogWarning("[BOOTSTRAP] SoundStudioScreen null!"); return; }
+
+        // Geri butonu
+        BindBtn(soundStudioScreen.transform, "BackToMainButton", ShowMainConsole);
+
+        // Uygula butonu
+        BindBtn(soundStudioScreen.transform, "ApplyButton", () =>
+        {
+            SoundPresetManager.Instance?.ApplyToSynthesizer();
+            AccessibilityManager.Instance?.Speak("Ses ayarlari kaydedildi.");
+            Debug.Log("[BOOTSTRAP] Ses ayarlari uygulandı.");
+        });
+
+        // Gitar butonlari
+        var gSection = soundStudioScreen.transform.Find("GuitarSection");
+        if (gSection != null)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                int idx = i;
+                var btn = gSection.Find($"GuitarBtn_{i}")?.GetComponent<Button>();
+                if (btn != null)
+                {
+                    btn.onClick.RemoveAllListeners();
+                    btn.onClick.AddListener(() =>
+                    {
+                        SoundPresetManager.Instance?.SetGuitarIndex(idx);
+                        UpdateStudioVisuals();
+                    });
+                }
+            }
+        }
+
+        // Piyano butonlari
+        var pSection = soundStudioScreen.transform.Find("PianoSection");
+        if (pSection != null)
+        {
+            for (int slot = 0; slot < 4; slot++)
+            {
+                for (int ci = 0; ci < 4; ci++)
+                {
+                    int s = slot, c = ci;
+                    var btn = pSection.Find($"PianoBtn_{s}_{c}")?.GetComponent<Button>();
+                    if (btn != null)
+                    {
+                        btn.onClick.RemoveAllListeners();
+                        btn.onClick.AddListener(() =>
+                        {
+                            SoundPresetManager.Instance?.SetPianoNote(s, c);
+                            UpdateStudioVisuals();
+                        });
+                    }
+                }
+            }
+        }
+
+        // Davul butonlari
+        var dSection = soundStudioScreen.transform.Find("DrumSection");
+        if (dSection != null)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                int idx = i;
+                var btn = dSection.Find($"DrumBtn_{idx}")?.GetComponent<Button>();
+                if (btn != null)
+                {
+                    btn.onClick.RemoveAllListeners();
+                    btn.onClick.AddListener(() =>
+                    {
+                        SoundPresetManager.Instance?.SetDrumIndex(idx);
+                        UpdateStudioVisuals();
+                    });
+                }
+            }
+        }
+
+        Debug.Log("[BOOTSTRAP] [OK] SoundStudio baglandi.");
+    }
+
+    private void UpdateStudioVisuals()
+    {
+        if (soundStudioScreen == null || SoundPresetManager.Instance == null) return;
+
+        var preset = SoundPresetManager.Instance;
+        Color activeC = new Color(0f, 0.9f, 1f, 1f);
+        Color inactC  = new Color(0.1f, 0.15f, 0.2f, 1f);
+
+        // Gitar butonlari
+        var gSection = soundStudioScreen.transform.Find("GuitarSection");
+        if (gSection != null)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                var img = gSection.Find($"GuitarBtn_{i}")?.GetComponent<Image>();
+                if (img != null) img.color = (i == preset.GetGuitarIndex()) ? activeC : inactC;
+            }
+        }
+
+        // Piyano butonlari
+        var pSection = soundStudioScreen.transform.Find("PianoSection");
+        if (pSection != null)
+        {
+            Color[] nc = {
+                new Color(1f,0.58f,0f,1f), new Color(1f,0.85f,0f,1f),
+                new Color(0f,0.75f,1f,1f), new Color(0.75f,0.25f,1f,1f)
+            };
+            for (int slot = 0; slot < 4; slot++)
+            {
+                for (int ci = 0; ci < 4; ci++)
+                {
+                    var img = pSection.Find($"PianoBtn_{slot}_{ci}")?.GetComponent<Image>();
+                    if (img != null)
+                        img.color = (ci == preset.GetPianoIndex(slot))
+                            ? nc[slot] : inactC;
+                }
+            }
+        }
+
+        // Davul butonlari
+        var dSection = soundStudioScreen.transform.Find("DrumSection");
+        if (dSection != null)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                var img = dSection.Find($"DrumBtn_{i}")?.GetComponent<Image>();
+                if (img != null)
+                    img.color = (i == preset.GetDrumIndex())
+                        ? new Color(1f,0f,0.6f,1f) : inactC;
+            }
+        }
     }
 
     public void ShowCalibration()
