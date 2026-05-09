@@ -347,6 +347,10 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
                 BgCard, kx0, kx1, 0.06f, 0.81f);
             key.AddComponent<Button>().transition = Selectable.Transition.None;
 
+            // TouchSpawnHandler — dokunulan noktadan efekt baslatir
+            var tsh = key.AddComponent<TouchSpawnHandler>();
+            tsh.spawnType = (TouchSpawnHandler.SpawnType)i;  // Piano0-3
+
             // Renkli ust sinir
             Panel("TopBorder", key.transform,
                 new Color(nc.r, nc.g, nc.b, 0.8f), 0f, 1f, 0.955f, 1f);
@@ -383,6 +387,9 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
         var padGO = Panel("DrumPad", dPanel.transform, BgCard,
             0.01f, 0.99f, 0.01f, 0.82f);
         padGO.AddComponent<Button>().transition = Selectable.Transition.None;
+
+        // TouchSpawnHandler — dokunulan noktadan efekt baslatir
+        padGO.AddComponent<TouchSpawnHandler>().spawnType = TouchSpawnHandler.SpawnType.Drum;
 
         // Magenta ust sinir
         Panel("TopBorder", padGO.transform,

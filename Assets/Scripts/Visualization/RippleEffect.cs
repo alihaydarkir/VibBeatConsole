@@ -37,6 +37,10 @@ public class RippleEffect : MonoBehaviour
     [Tooltip("Halka bitis alpha degeri. 0 = tamamen kaybolur")]
     [SerializeField] [Range(0.0f, 0.3f)] private float endAlpha      = 0f;
 
+    [Header("Alan Kontrolu")]
+    [Tooltip("Halkalar ekranin kac katina kadar buyuyor (1=ekran kenari, 2=ekranin 2 kati)")]
+    [SerializeField] [Range(0.3f, 3.0f)] private float coverageScale = 1.2f;
+
     [Tooltip("Her basista kac halka cikar (1=tek, 2=cift, 3=uclu)")]
     [SerializeField] [Range(1, 5)] private int ringCount = 1;
 
@@ -50,12 +54,14 @@ public class RippleEffect : MonoBehaviour
     public float RingWidth      { get => ringWidth;     set { ringWidth = value; UpdatePoolRings(); } }
 
     // Renk paleti
-    public static readonly Color ColorPianoDo = new Color(1.00f, 0.65f, 0.00f, 1f);
-    public static readonly Color ColorPianoRe = new Color(0.80f, 0.90f, 0.00f, 1f);
-    public static readonly Color ColorPianoMi = new Color(0.00f, 0.85f, 0.80f, 1f);
-    public static readonly Color ColorPianoFa = new Color(0.85f, 0.30f, 1.00f, 1f);
-    public static readonly Color ColorDrum    = new Color(1.00f, 0.10f, 0.68f, 1f);
-    public static readonly Color ColorGuitar  = new Color(0.00f, 0.94f, 1.00f, 1f);
+    // HDR neon renkler — 1.0 uzerindeki degerler Unity bloom ile gercek neon efekti verir
+    // Bloom yoksa da daha canli gorunur
+    public static readonly Color ColorPianoDo = new Color(2.5f, 0.7f, 0.0f, 1f);  // neon turuncu
+    public static readonly Color ColorPianoRe = new Color(2.5f, 2.0f, 0.0f, 1f);  // neon sari
+    public static readonly Color ColorPianoMi = new Color(0.0f, 2.5f, 2.5f, 1f);  // neon cyan
+    public static readonly Color ColorPianoFa = new Color(1.5f, 0.0f, 3.0f, 1f);  // neon mor
+    public static readonly Color ColorDrum    = new Color(3.0f, 0.0f, 1.5f, 1f);  // neon magenta
+    public static readonly Color ColorGuitar  = new Color(0.0f, 2.5f, 3.0f, 1f);  // neon elektrik mavi
 
     private RectTransform[] poolRects;
     private CircleImage[]   poolImages;
@@ -223,7 +229,8 @@ public class RippleEffect : MonoBehaviour
             Screen.width  * (float)Screen.width +
             Screen.height * (float)Screen.height
         ) / targetCanvas.scaleFactor;
-        float maxSize = screenDiag * 2.5f; // ekrandan kesinlikle tasin
+        // coverageScale: 1.0 = ekran kenari, 2.0 = ekranin 2 kati, 0.5 = yari ekran
+        float maxSize = screenDiag * coverageScale * 2f;
 
         // innerRadius: dis yaricapin ne kadari ic bos (1 - ringWidth)
         img.innerRadius = 1f - ringWidth;

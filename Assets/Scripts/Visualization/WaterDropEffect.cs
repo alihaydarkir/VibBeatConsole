@@ -88,21 +88,46 @@ public class WaterDropEffect : MonoBehaviour
     /// <summary>Piyano tus renkleri icin kisayol</summary>
     public void SpawnPianoDrop(Vector3 worldPos, int keyIndex)
     {
+        // HDR neon renkler — RippleEffect ile eslesmis palet
         Color[] colors = {
-            new Color(1.00f, 0.58f, 0.00f, 1f), // Do — turuncu
-            new Color(1.00f, 0.85f, 0.00f, 1f), // Re — altin
-            new Color(0.00f, 0.75f, 1.00f, 1f), // Mi — cyan
-            new Color(0.75f, 0.25f, 1.00f, 1f), // Fa — mor
+            new Color(2.5f, 0.7f, 0.0f, 1f),  // Do — neon turuncu
+            new Color(2.5f, 2.0f, 0.0f, 1f),  // Re — neon sari
+            new Color(0.0f, 2.5f, 2.5f, 1f),  // Mi — neon cyan
+            new Color(1.5f, 0.0f, 3.0f, 1f),  // Fa — neon mor
         };
         Color c = (keyIndex >= 0 && keyIndex < colors.Length)
             ? colors[keyIndex] : colors[0];
         SpawnDrop(worldPos, c, elliptic: false);
+
+        // Ayni anda Ripple baslatilir — drop merkezinden ekrana yayilir
+        RippleEffect.Instance?.SpawnPiano(worldPos, keyIndex);
     }
 
-    /// <summary>Davul icin genis eliptik damla</summary>
+    /// <summary>Davul icin genis eliptik damla + neon magenta</summary>
     public void SpawnDrumDrop(Vector3 worldPos)
     {
-        SpawnDrop(worldPos, new Color(1f, 0.1f, 0.6f, 1f), elliptic: true);
+        SpawnDrop(worldPos, new Color(3.0f, 0.0f, 1.5f, 1f), elliptic: true);
+
+        // Ayni anda Ripple — davul darbesiyle ekrana yayilir
+        RippleEffect.Instance?.SpawnDrum(worldPos);
+    }
+
+    /// <summary>
+    /// Ekran koordinatindan (PointerEventData.position) direkt spawn.
+    /// Tam dokunulan noktadan baslar.
+    /// </summary>
+    public void SpawnDropAtScreen(Vector2 screenPos, Color color, bool elliptic = false)
+    {
+        Camera cam = (targetCanvas.renderMode == RenderMode.ScreenSpaceOverlay)
+            ? null : Camera.main;
+
+        Vector2 localPos;
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            canvasRT, screenPos, cam, out localPos);
+
+        StartCoroutine(SpawnCenterDot(localPos, color));
+        for (int r = 0; r < ringPerDrop; r++)
+            StartCoroutine(SpawnRing(localPos, color, r * ringDelay, elliptic));
     }
 
     /// <summary>
@@ -148,9 +173,14 @@ public class WaterDropEffect : MonoBehaviour
         rt.anchoredPosition = localPos;
         rt.sizeDelta = new Vector2(dotSize, dotSize);
 
-        // Parlak beyaz → renk → seffaf
+        // Neon merkez: parlak beyaz → neon renk → seffaf
+        // Rengi normalize et (HDR > 1 olabilir, alpha icin clamp)
+        Color normalizedColor = new Color(
+            Mathf.Clamp01(color.r * 0.5f),
+            Mathf.Clamp01(color.g * 0.5f),
+            Mathf.Clamp01(color.b * 0.5f), 1f);
         img.color = Color.white;
-        img.DOColor(color, dotFadeDur * 0.3f)
+        img.DOColor(normalizedColor, dotFadeDur * 0.3f)
            .OnComplete(() =>
                img.DOFade(0f, dotFadeDur * 0.7f)
                   .OnComplete(() => Destroy(go)));
@@ -188,7 +218,9 @@ public class WaterDropEffect : MonoBehaviour
 
         float startSize = dotSize * 1.5f;
         rt.sizeDelta = new Vector2(startSize, startSize * yScale);
-        img.color    = new Color(color.r, color.g, color.b, 0.85f);
+        // HDR renk normalize: RGB neon degerlerini 0-1 araligina cek, parlaklik korunur
+        float maxC = Mathf.Max(color.r, color.g, color.b, 1f);
+        img.color  = new Color(color.r / maxC, color.g / maxC, color.b / maxC, 0.9f);
         go.SetActive(true);
         go.transform.SetAsLastSibling();
 
