@@ -783,6 +783,89 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
     }
 
     // ═════════════════════════════════════════════════════════════════════════
+    // GÜVENLİ EKLEME — Mevcut UI'a dokunmaz, sadece RecordStudio ekler
+    // ═════════════════════════════════════════════════════════════════════════
+    [ContextMenu("Add ONLY RecordStudio Screen (Safe)")]
+    public void AddRecordStudioOnly()
+    {
+        // Mevcut Canvas'ı bul
+        var canvasGO = GameObject.Find(CanvasName);
+        if (canvasGO == null)
+        {
+            Debug.LogError("[VibeBeat] VibeBeatCanvas bulunamadı! Önce sahneyi aç.");
+            return;
+        }
+
+        // ScreenManager'ı bul
+        sm = canvasGO.GetComponent<VibeBeatScreenManager>();
+        if (sm == null)
+        {
+            Debug.LogError("[VibeBeat] VibeBeatScreenManager bulunamadı!");
+            return;
+        }
+
+        // Zaten varsa sil — temiz yeniden kur
+        var existing = canvasGO.transform.Find("RecordStudioScreen");
+        if (existing != null)
+        {
+            DestroyImmediate(existing.gameObject);
+            Debug.Log("[VibeBeat] Eski RecordStudioScreen silindi, yeniden kuruluyor.");
+        }
+
+        // NoteRecorder yoksa ekle
+        if (FindFirstObjectByType<NoteRecorder>() == null)
+        {
+            var recorderGO = GameObject.Find("VibBeatSystems")
+                          ?? GameObject.Find("VibBeatMasterController")
+                          ?? canvasGO;
+            recorderGO.AddComponent<NoteRecorder>();
+            Debug.Log($"[VibeBeat] NoteRecorder → {recorderGO.name} eklendi.");
+        }
+
+        // RecordStudio ekranını kur
+        var record = RecordStudioScreen(canvasGO.transform);
+        record.SetActive(false);
+
+        // ScreenManager'a bağla
+        sm.recordStudioScreen = record;
+
+        // MainConsoleScreen TopBar'ına REC butonu ekle (yoksa)
+        var mainScreen = canvasGO.transform.Find("MainConsoleScreen");
+        if (mainScreen != null)
+        {
+            var topBar = mainScreen.Find("TopBar");
+            if (topBar != null && topBar.Find("RecordButton") == null)
+            {
+                var recPanel = Panel("RecordButton", topBar, Hex("#1A0000"),
+                    0.60f, 0.74f, 0.08f, 0.92f);
+                var recBtn = recPanel.AddComponent<Button>();
+                recBtn.transition = Selectable.Transition.None;
+                recBtn.onClick.AddListener(sm.ShowRecordStudio);
+                Panel("RecBorder", recPanel.transform, Hex("#FF0044"), 0f, 1f, 0.93f, 1f);
+                Txt(recPanel, "Icon", "REC", 20, Hex("#FF0044"),
+                    Anchor.Center, 0f, 1f, 0f, 1f, bold: true);
+                Debug.Log("[VibeBeat] REC butonu TopBar'a eklendi.");
+            }
+            else if (topBar != null && topBar.Find("RecordButton") != null)
+            {
+                // Butonu yeniden bağla
+                var recBtn = topBar.Find("RecordButton").GetComponent<Button>();
+                if (recBtn != null)
+                {
+                    recBtn.onClick.RemoveAllListeners();
+                    recBtn.onClick.AddListener(sm.ShowRecordStudio);
+                }
+            }
+        }
+
+#if UNITY_EDITOR
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
+            UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        Debug.Log("[VibeBeat] ✅ RecordStudio eklendi — Ctrl+S ile kaydet.");
+#endif
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
     // Canvas / EventSystem kurulum
     // ═════════════════════════════════════════════════════════════════════════
     private GameObject MakeCanvas()
