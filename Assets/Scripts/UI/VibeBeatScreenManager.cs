@@ -14,6 +14,7 @@ public class VibeBeatScreenManager : MonoBehaviour
     [HideInInspector] public GameObject mainConsoleScreen;
     [HideInInspector] public GameObject settingsScreen;
     [HideInInspector] public GameObject soundStudioScreen;
+    [HideInInspector] public GameObject recordStudioScreen;
 
     [Header("Geçiş Süresi")]
     [SerializeField] private float fadeDuration = 0.4f;
@@ -25,15 +26,16 @@ public class VibeBeatScreenManager : MonoBehaviour
     // ─────────────────────────────────────────
     public void Init(GameObject splash, GameObject onboard, GameObject calib,
                      GameObject main, GameObject settings,
-                     GameObject studio = null)
+                     GameObject studio = null, GameObject recordStudio = null)
     {
-        splashScreen      = splash;
-        onboardingScreen  = onboard;
-        calibrationScreen = calib;
-        mainConsoleScreen = main;
-        settingsScreen    = settings;
-        soundStudioScreen = studio;
-        initialized       = true;
+        splashScreen       = splash;
+        onboardingScreen   = onboard;
+        calibrationScreen  = calib;
+        mainConsoleScreen  = main;
+        settingsScreen     = settings;
+        soundStudioScreen  = studio;
+        recordStudioScreen = recordStudio;
+        initialized        = true;
 
         CreateOverlay();
         Debug.Log("[SCREEN_MGR] [OK] Init tamamlandı.");
@@ -71,6 +73,7 @@ public class VibeBeatScreenManager : MonoBehaviour
     public void ShowMainConsole()  => Fade(mainConsoleScreen, "Müzik konsolu. Sol bölge gitar, sağ üst piyano, sağ alt davul.");
     public void ShowSettings()     => Fade(settingsScreen,    "Ayarlar.");
     public void ShowSoundStudio()  => Fade(soundStudioScreen, "Ses studyosu. Gitar, piyano ve davul seslerinizi secin.");
+    public void ShowRecordStudio() => Fade(recordStudioScreen, "Kayıt stüdyosu. Notalarınızı kaydedin ve geri oynatın.");
 
     // ─────────────────────────────────────────
     // FADE CORE
@@ -116,12 +119,13 @@ public class VibeBeatScreenManager : MonoBehaviour
     // ─────────────────────────────────────────
     public void ShowOnly(GameObject target)
     {
-        SetActive(splashScreen,      splashScreen      == target);
-        SetActive(onboardingScreen,  onboardingScreen  == target);
-        SetActive(calibrationScreen, calibrationScreen == target);
-        SetActive(mainConsoleScreen, mainConsoleScreen == target);
-        SetActive(settingsScreen,    settingsScreen    == target);
-        SetActive(soundStudioScreen, soundStudioScreen == target);
+        SetActive(splashScreen,       splashScreen      == target);
+        SetActive(onboardingScreen,   onboardingScreen  == target);
+        SetActive(calibrationScreen,  calibrationScreen == target);
+        SetActive(mainConsoleScreen,  mainConsoleScreen == target);
+        SetActive(settingsScreen,     settingsScreen    == target);
+        SetActive(soundStudioScreen,  soundStudioScreen == target);
+        SetActive(recordStudioScreen, recordStudioScreen == target);
     }
 
     private void SetActive(GameObject go, bool active)

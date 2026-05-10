@@ -2,6 +2,14 @@
 
 public class AudioSynthesizer : MonoBehaviour
 {
+    public static AudioSynthesizer Instance { get; private set; }
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+        Instance = this;
+    }
+
     // --- Audio Sources ---
     [SerializeField] private AudioSource guitarSource;
     [SerializeField] private AudioSource pianoSource;
@@ -86,6 +94,7 @@ public class AudioSynthesizer : MonoBehaviour
         // 0.0 → pitch=0.5 (kalın)
         // 1.0 → pitch=2.0 (ince)
         targetPitch = Mathf.Lerp(0.5f, 2.0f, normalizedValue);
+        NoteRecorder.Instance?.RecordGuitarPitch(normalizedValue);
     }
 
     // --- Gitar Mute ---
@@ -126,6 +135,7 @@ public class AudioSynthesizer : MonoBehaviour
 
         pianoSource.pitch = pianoNotePitches[keyIndex];
         pianoSource.PlayOneShot(pianoNotes[keyIndex], 0.8f);
+        NoteRecorder.Instance?.RecordPiano(keyIndex);
         Debug.Log($"[AUDIO] [PIANO] Nota çalındı: {keyIndex} (pitch:{pianoNotePitches[keyIndex]})");
     }
 
@@ -139,6 +149,7 @@ public class AudioSynthesizer : MonoBehaviour
         }
 
         drumSource.PlayOneShot(drumKick, 1f);
+        NoteRecorder.Instance?.RecordDrum();
         Debug.Log("[AUDIO] [DAVUL] Kick!");
     }
 
