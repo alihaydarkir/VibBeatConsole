@@ -56,12 +56,12 @@ public class RippleEffect : MonoBehaviour
     // Renk paleti
     // HDR neon renkler — 1.0 uzerindeki degerler Unity bloom ile gercek neon efekti verir
     // Bloom yoksa da daha canli gorunur
-    public static readonly Color ColorPianoDo = new Color(2.5f, 0.7f, 0.0f, 1f);  // neon turuncu
-    public static readonly Color ColorPianoRe = new Color(2.5f, 2.0f, 0.0f, 1f);  // neon sari
-    public static readonly Color ColorPianoMi = new Color(0.0f, 2.5f, 2.5f, 1f);  // neon cyan
-    public static readonly Color ColorPianoFa = new Color(1.5f, 0.0f, 3.0f, 1f);  // neon mor
-    public static readonly Color ColorDrum    = new Color(3.0f, 0.0f, 1.5f, 1f);  // neon magenta
-    public static readonly Color ColorGuitar  = new Color(0.0f, 2.5f, 3.0f, 1f);  // neon elektrik mavi
+    public static readonly Color ColorPianoDo = new Color(0.529f, 0.914f, 0.055f, 1f);  // #87E90E
+    public static readonly Color ColorPianoRe = new Color(1.000f, 0.886f, 0.000f, 1f);  // #FFE200
+    public static readonly Color ColorPianoMi = new Color(0.000f, 0.749f, 1.000f, 1f);  // #00BFFF
+    public static readonly Color ColorPianoFa = new Color(0.753f, 0.376f, 1.000f, 1f);  // #C060FF
+    public static readonly Color ColorDrum = new Color(0.867f, 0.027f, 0.522f, 1f);  // #DD0785
+    public static readonly Color ColorGuitar = new Color(0.0f, 2.5f, 3.0f, 1f);        // değişmedi
 
     private RectTransform[] poolRects;
     private CircleImage[]   poolImages;

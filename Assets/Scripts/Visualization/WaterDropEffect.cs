@@ -90,10 +90,10 @@ public class WaterDropEffect : MonoBehaviour
     {
         // HDR neon renkler — RippleEffect ile eslesmis palet
         Color[] colors = {
-            new Color(2.5f, 0.7f, 0.0f, 1f),  // Do — neon turuncu
-            new Color(2.5f, 2.0f, 0.0f, 1f),  // Re — neon sari
-            new Color(0.0f, 2.5f, 2.5f, 1f),  // Mi — neon cyan
-            new Color(1.5f, 0.0f, 3.0f, 1f),  // Fa — neon mor
+        new Color(0.529f, 0.914f, 0.055f, 1f),  // Do — #87E90E
+        new Color(1.000f, 0.886f, 0.000f, 1f),  // Re — #FFE200
+        new Color(0.000f, 0.749f, 1.000f, 1f),  // Mi — #00BFFF
+        new Color(0.753f, 0.376f, 1.000f, 1f),  // Fa — #C060FF
         };
         Color c = (keyIndex >= 0 && keyIndex < colors.Length)
             ? colors[keyIndex] : colors[0];
@@ -106,7 +106,7 @@ public class WaterDropEffect : MonoBehaviour
     /// <summary>Davul icin genis eliptik damla + neon magenta</summary>
     public void SpawnDrumDrop(Vector3 worldPos)
     {
-        SpawnDrop(worldPos, new Color(3.0f, 0.0f, 1.5f, 1f), elliptic: true);
+        SpawnDrop(worldPos, new Color(0.867f, 0.027f, 0.522f, 1f), elliptic: true);
 
         // Ayni anda Ripple — davul darbesiyle ekrana yayilir
         RippleEffect.Instance?.SpawnDrum(worldPos);

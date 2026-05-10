@@ -13,7 +13,7 @@ public class AmbientWaveVisualizer : MonoBehaviour
     [SerializeField] private RectTransform container;
 
     [Header("Cubuk Ayarlari")]
-    [Range(8, 48)]
+    [Range(8, 256)]
     [SerializeField] private int   barCount     = 24;
     [Range(0f, 0.5f)]
     [SerializeField] private float barGapRatio  = 0.18f;
