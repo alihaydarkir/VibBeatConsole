@@ -25,6 +25,7 @@ public class VibeBeatBootstrap : MonoBehaviour
     private GameObject mainConsoleScreen;
     private GameObject settingsScreen;
     private GameObject soundStudioScreen;
+    private GameObject recordStudioScreen;
 
     // ─────────────────────────────────────────
     // UI REFERANSLARI
@@ -64,10 +65,12 @@ public class VibeBeatBootstrap : MonoBehaviour
         mainConsoleScreen = FindChild(t, "MainConsoleScreen");
         settingsScreen    = FindChild(t, "SettingsScreen");
         soundStudioScreen = FindChild(t, "SoundStudioScreen");
+        recordStudioScreen = FindChild(t, "RecordStudioScreen");
 
         // ScreenManager'a ekran referanslarını aktar
         screenManager?.Init(splashScreen, onboardingScreen, calibrationScreen,
-                            mainConsoleScreen, settingsScreen, soundStudioScreen);
+                            mainConsoleScreen, settingsScreen, soundStudioScreen,
+                            recordStudioScreen);
 
         LogScreenStatus();
 
@@ -102,6 +105,7 @@ public class VibeBeatBootstrap : MonoBehaviour
         BindMainConsole();
         BindSettings();
         BindSoundStudio();
+        BindRecordStudio();
     }
 
     private void BindSplash()
@@ -143,6 +147,7 @@ public class VibeBeatBootstrap : MonoBehaviour
         {
             BindBtn(topBar, "SettingsButton", ShowSettings);
             BindBtn(topBar, "StudioButton",  ShowSoundStudio);
+            BindBtn(topBar, "RecordButton",  ShowRecordStudio);
         }
         else
             Debug.LogWarning("[BOOTSTRAP] TopBar bulunamadı!");
@@ -342,6 +347,28 @@ public class VibeBeatBootstrap : MonoBehaviour
     {
         Debug.Log("[BOOTSTRAP] → SoundStudioScreen");
         screenManager?.ShowSoundStudio();
+    }
+
+    public void ShowRecordStudio()
+    {
+        Debug.Log("[BOOTSTRAP] → RecordStudioScreen");
+        screenManager?.ShowRecordStudio();
+    }
+
+    private void BindRecordStudio()
+    {
+        if (recordStudioScreen == null)
+        {
+            Debug.LogWarning("[BOOTSTRAP] RecordStudioScreen null — 'Add ONLY RecordStudio Screen (Safe)' çalıştır.");
+            return;
+        }
+
+        // Geri butonu
+        Transform topBar = recordStudioScreen.transform.Find("TopBar");
+        if (topBar != null)
+            BindBtn(topBar, "BackButton", ShowMainConsole);
+
+        Debug.Log("[BOOTSTRAP] [OK] RecordStudio bağlandı.");
     }
 
     private void BindSoundStudio()
@@ -572,11 +599,13 @@ public class VibeBeatBootstrap : MonoBehaviour
     // ─────────────────────────────────────────
     private void ActivateAll(bool active)
     {
-        SetActive(splashScreen,      active);
-        SetActive(onboardingScreen,  active);
-        SetActive(calibrationScreen, active);
-        SetActive(mainConsoleScreen, active);
-        SetActive(settingsScreen,    active);
+        SetActive(splashScreen,       active);
+        SetActive(onboardingScreen,   active);
+        SetActive(calibrationScreen,  active);
+        SetActive(mainConsoleScreen,  active);
+        SetActive(settingsScreen,     active);
+        SetActive(soundStudioScreen,  active);
+        SetActive(recordStudioScreen, active);
     }
 
     /// <summary>
