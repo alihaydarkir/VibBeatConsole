@@ -47,6 +47,8 @@ public class VibeBeatBootstrap : MonoBehaviour
     // ─────────────────────────────────────────
     private void Awake()
     {
+        FixEventSystem();
+
         screenManager = GetComponent<VibeBeatScreenManager>();
 
         // MasterController sahnede yoksa otomatik bul
@@ -81,6 +83,35 @@ public class VibeBeatBootstrap : MonoBehaviour
 
         ShowSplash();
         Debug.Log("[BOOTSTRAP] [OK] Başlatma tamamlandı.");
+    }
+
+    private static void FixEventSystem()
+    {
+        var es = UnityEngine.EventSystems.EventSystem.current;
+        if (es == null) return;
+
+        // InputSystemUIInputModule varsa hemen kaldır
+        var inputSysModule = es.GetComponent("InputSystemUIInputModule");
+        if (inputSysModule != null)
+        {
+            DestroyImmediate(inputSysModule);
+            Debug.Log("[BOOTSTRAP] InputSystemUIInputModule kaldırıldı.");
+        }
+
+        // Eski StandaloneInputModule varsa da kaldır — MobileInputModule ile değiştir
+        var oldModule = es.GetComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+        if (oldModule != null && oldModule.GetType() != typeof(MobileInputModule))
+        {
+            DestroyImmediate(oldModule);
+            Debug.Log("[BOOTSTRAP] StandaloneInputModule kaldırıldı.");
+        }
+
+        // MobileInputModule: Android'de double-fire'ı önler
+        if (es.GetComponent<MobileInputModule>() == null)
+        {
+            es.gameObject.AddComponent<MobileInputModule>();
+            Debug.Log("[BOOTSTRAP] MobileInputModule eklendi (Android double-fire koruması).");
+        }
     }
 
     private void LogScreenStatus()
@@ -239,6 +270,9 @@ public class VibeBeatBootstrap : MonoBehaviour
         // Tekrar kalibre
         BindBtn(sp, "RecalibrateRow", ShowCalibration);
 
+        // Sesli okuma toggle — AccessibilityToggleRow bileşeni AccessibilityRow üzerinde
+        // kendi Start()'ında bağlanır, burada ek işlem gerekmez.
+
         // Haptic toggle
         Button hapticBtn = sp.Find("HapticRow")?.GetComponent<Button>();
         if (hapticBtn != null)
@@ -335,6 +369,7 @@ public class VibeBeatBootstrap : MonoBehaviour
     {
         Debug.Log("[BOOTSTRAP] → MainConsoleScreen");
         screenManager?.ShowMainConsole();
+        masterController?.StartGuitarLoop();
     }
 
     public void ShowSettings()
@@ -533,6 +568,11 @@ public class VibeBeatBootstrap : MonoBehaviour
         AccessibilityManager.Instance?.AnnounceCalibrationStep(
             "Adım 1: Sol elinizi ışık sensörünün üzerine kapatın.");
 
+        // Gerçek kalibrasyon UI ile EŞ ZAMANLI başlar — animasyon bittikten sonra değil
+        masterController?.StartCalibration();
+        Debug.Log("[BOOTSTRAP] [CALIB] Kalibrasyon başlatıldı (UI ile eş zamanlı).");
+
+        // Faz 1: Minimum ölçümü (el kapalı) — ~2.5 saniye
         float duration = 2.5f, timer = 0f;
         while (timer < duration)
         {
@@ -540,8 +580,10 @@ public class VibeBeatBootstrap : MonoBehaviour
             float n   = Mathf.Clamp01(timer / duration);
             int   pct = Mathf.RoundToInt(n * 50f);
             SetText(calPercentText, pct + "%");
-            SetText(calLuxText,     "Lux: " + Mathf.Lerp(0f, 12f, n).ToString("0.0"));
-            SetText(calStatusText,  "Durum: Min ölçülüyor");
+            // Gerçek lux değerini göster
+            float liveMin = masterController?.GetNormalizedSensorValue() ?? 0f;
+            SetText(calLuxText,    "Lux: " + (liveMin * 50000f).ToString("0"));
+            SetText(calStatusText, "Durum: Min ölçülüyor");
             if (progressRing) progressRing.fillAmount = n * 0.5f;
             yield return null;
         }
@@ -550,6 +592,7 @@ public class VibeBeatBootstrap : MonoBehaviour
         AccessibilityManager.Instance?.AnnounceCalibrationStep(
             "Adım 2: Elinizi yavaşça uzaklaştırın.");
 
+        // Faz 2: Maksimum ölçümü (el açık) — ~2.5 saniye
         timer = 0f;
         while (timer < duration)
         {
@@ -557,8 +600,9 @@ public class VibeBeatBootstrap : MonoBehaviour
             float n   = Mathf.Clamp01(timer / duration);
             int   pct = 50 + Mathf.RoundToInt(n * 50f);
             SetText(calPercentText, pct + "%");
-            SetText(calLuxText,     "Lux: " + Mathf.Lerp(12f, 3500f, n).ToString("0.0"));
-            SetText(calStatusText,  "Durum: Max ölçülüyor");
+            float liveMax = masterController?.GetNormalizedSensorValue() ?? 0f;
+            SetText(calLuxText,    "Lux: " + (liveMax * 50000f).ToString("0"));
+            SetText(calStatusText, "Durum: Max ölçülüyor");
             if (progressRing) progressRing.fillAmount = 0.5f + n * 0.5f;
             yield return null;
         }
@@ -568,7 +612,6 @@ public class VibeBeatBootstrap : MonoBehaviour
         SetText(calStatusText, "Durum: Hazır");
         if (progressRing) progressRing.fillAmount = 1f;
 
-        masterController?.StartCalibration();
         AccessibilityManager.Instance?.AnnounceCalibrationComplete();
         Debug.Log("[BOOTSTRAP] [OK] Kalibrasyon UI tamamlandı.");
     }
@@ -645,6 +688,13 @@ public class VibeBeatBootstrap : MonoBehaviour
         });
 
         Debug.Log($"[BOOTSTRAP] [OK] '{childName}' butonu + ripple bağlandı.");
+    }
+
+    private static void UpdateAccessLabel(TextMeshProUGUI label, bool enabled)
+    {
+        if (label == null) return;
+        label.text  = enabled ? "Sesli Okuma: AÇIK" : "Sesli Okuma: KAPALI";
+        label.color = Hex(enabled ? "#00F0FF" : "#8899AA");
     }
 
     private void UpdateEffectVisuals(Transform effectRow, string[] names)

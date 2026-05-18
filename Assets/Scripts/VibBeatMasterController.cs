@@ -29,10 +29,11 @@ public class VibBeatMasterController : MonoBehaviour
     [SerializeField] private bool   debugGuitarMuted  = false;
     [SerializeField] private string debugSensorStatus = "";
 
-    private bool  isRunning            = false;
-    private float normalizedSensor      = 0f;
+    private bool  isRunning        = false;
+    private float normalizedSensor = 0f;
     private GuitarWaveVisualizer guitarWave = null;
-    private HandWaveVisualizer handWave = null;
+    private HandWaveVisualizer   handWave   = null;
+
 
     // ─────────────────────────────────────────
     // AWAKE — bağımlılıkları otomatik bul
@@ -109,11 +110,14 @@ public class VibBeatMasterController : MonoBehaviour
         debugNormalizedLux = normalized;
         normalizedSensor   = normalized;
 
-        if (touchZoneController != null && !touchZoneController.IsGuitarMuted)
+        bool guitarActive = touchZoneController == null || !touchZoneController.IsGuitarMuted;
+        if (guitarActive && audioSynthesizer != null)
         {
-            audioSynthesizer?.SetGuitarPitchFromSensor(normalized);
+            audioSynthesizer.SetGuitarToneFromSensor(normalized);
             visualController?.UpdateGuitarVisualization(normalized);
         }
+
+        // Gitar kayıt: AudioSynthesizer.SetGuitarToneFromSensor içinde ton değişince direkt yapılır
 
         // Her zaman gitar dalgasini besle (mute olsa da donuk dalga gosterilsin)
         guitarWave?.SetSensorValue(normalized);
@@ -159,6 +163,8 @@ public class VibBeatMasterController : MonoBehaviour
     private void HandleCalibrationComplete()
     {
         Debug.Log("[MASTER] [OK] Kalibrasyon tamamlandı.");
+        // Kalibrasyonsuzken öğrenilen 0.5f değerlerini temizle
+        audioSynthesizer?.ResetSensorRange();
         AccessibilityManager.Instance?.AnnounceCalibrationComplete();
     }
 
@@ -218,6 +224,11 @@ public class VibBeatMasterController : MonoBehaviour
     {
         hapticManager?.SetHapticEnabled(enabled);
         Debug.Log($"[MASTER] [TITRESIM] Haptic: {enabled}");
+    }
+
+    public void StartGuitarLoop()
+    {
+        audioSynthesizer?.StartGuitarLoop();
     }
 
     // ─────────────────────────────────────────

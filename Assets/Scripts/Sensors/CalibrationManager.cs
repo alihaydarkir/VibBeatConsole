@@ -28,7 +28,7 @@ public class CalibrationManager : MonoBehaviour
     {
         sensorController = FindFirstObjectByType<SensorController>();
         if (sensorController == null)
-            Debug.LogError("[CALIBRATION] [HATA] SensorController sahnede bulunamadı!");
+            Debug.LogError("[CALIBRATION] [HATA] SensorController sahnede bulunamadi!");
         else
             Debug.Log("[CALIBRATION] [OK] SensorController bulundu.");
     }
@@ -67,18 +67,19 @@ public class CalibrationManager : MonoBehaviour
         bool isEditor = Application.platform != RuntimePlatform.Android;
 
         // ADIM 1: Minimum Lux (el kapalı)
+        // Bootstrap UI ile eş zamanlı çalışır: Faz 1 = 2.5s
+        // 1.0s bekle (kullanıcı elini kapatsın), sonra 1.5s boyunca örnekle
         OnCalibrationMessage?.Invoke("Elini kapat ve bekle...");
-        yield return new WaitForSeconds(isEditor ? 0.5f : 2f);
+        yield return new WaitForSeconds(isEditor ? 0.3f : 1.0f);
 
         if (isEditor)
         {
-            // Editor: mouse solda = kapalı = düşük lux simülasyonu
             minLux = 0f;
         }
         else
         {
             float minSum = 0f;
-            int samples = 60;
+            int   samples = 90; // ~1.5s @ 60fps
             for (int i = 0; i < samples; i++)
             {
                 minSum += sensorController.GetCurrentLux();
@@ -89,21 +90,23 @@ public class CalibrationManager : MonoBehaviour
         debugMinLux = minLux;
         OnCalibrationMessage?.Invoke($"Min kaydedildi: {minLux:F1} lux");
 
-        yield return new WaitForSeconds(isEditor ? 0.3f : 1f);
+        // Faz 2 başlangıcına kadar bekle
+        yield return new WaitForSeconds(isEditor ? 0.2f : 0f);
 
         // ADIM 2: Maximum Lux (el açık)
+        // Bootstrap UI Faz 2 başlar: kullanıcı elini uzaklaştırıyor
+        // 1.0s bekle (el tamamen açılsın), sonra 1.5s boyunca örnekle
         OnCalibrationMessage?.Invoke("Elini ac, 15cm yukari kaldir...");
-        yield return new WaitForSeconds(isEditor ? 0.5f : 2f);
+        yield return new WaitForSeconds(isEditor ? 0.3f : 1.0f);
 
         if (isEditor)
         {
-            // Editor: simüle max = 50000 lux (tam açık)
             maxLux = 50000f;
         }
         else
         {
             float maxSum = 0f;
-            int samples = 60;
+            int   samples = 90; // ~1.5s @ 60fps
             for (int i = 0; i < samples; i++)
             {
                 maxSum += sensorController.GetCurrentLux();

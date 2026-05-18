@@ -16,19 +16,19 @@ public class AudioSynthesizer : MonoBehaviour
     [SerializeField] private AudioSource drumSource;
 
     // --- Audio Clips ---
-    [SerializeField] private AudioClip guitarLoop;
-    [SerializeField] private AudioClip[] pianoNotes;  // 4 adet (Do, Re, Mi, Fa)
+    [Header("Gitar Tonları (Inspector'dan ata — az=kalın, çok=ince)")]
+    [SerializeField] private AudioClip[] guitarToneClips; // farklı gitar tonları
+    [SerializeField] private AudioClip[] pianoNotes;      // 4 adet (Do, Re, Mi, Fa)
     [SerializeField] private AudioClip drumKick;
 
-    // --- Pitch Kontrolü ---
-    private float currentPitch = 1f;
-    private float targetPitch = 1f;
-    private const float PITCH_SMOOTH = 8f;  // Yumuşatma hızı
+    // --- Gitar Durumu ---
+    private int  currentGuitarToneIndex = -1;
+    private bool guitarLoopActive       = false;
 
     // --- Inspector Debug ---
-    [SerializeField] private float debugCurrentPitch = 1f;
-    [SerializeField] private float debugNormalizedLux = 0f;
-    [SerializeField] private bool debugIsGuitarMuted = false;
+    [SerializeField] private float debugNormalizedLux   = 0f;
+    [SerializeField] private int   debugGuitarToneIndex = -1;
+    [SerializeField] private bool  debugIsGuitarMuted   = false;
 
     // --- Piyano Frekansları (pitch çarpanı) ---
     private readonly float[] pianoNotePitches = new float[]
@@ -50,11 +50,10 @@ public class AudioSynthesizer : MonoBehaviour
         if (guitarSource == null)
             guitarSource = gameObject.AddComponent<AudioSource>();
 
-        guitarSource.clip = guitarLoop;
-        guitarSource.loop = true;
+        guitarSource.loop   = true;
         guitarSource.volume = 0.7f;
-        guitarSource.pitch = 1f;
-        guitarSource.Play();
+        guitarSource.pitch  = 1f;
+        // Play() çağrılmıyor — StartGuitarLoop() ile main ekranda başlatılır
 
         // Piano Source
         if (pianoSource == null)
@@ -73,29 +72,82 @@ public class AudioSynthesizer : MonoBehaviour
         Debug.Log("[AUDIO] [OK] AudioSources hazır!");
     }
 
-    private void Update()
-    {
-        // --- Smooth Pitch Interpolation ---
-        currentPitch = Mathf.Lerp(currentPitch, targetPitch,
-            Time.deltaTime * PITCH_SMOOTH);
+    // Sensörün gözlemlenen min/max değerleri — dinamik aralık öğrenmesi
+    private float sensorObservedMin =  1f;
+    private float sensorObservedMax =  0f;
+    private const float SENSOR_LEARN_RATE  = 0.02f; // aralık genişleme hızı
+    private const float GUITAR_MUTE_THRESHOLD = 0.02f; // yeniden ölçeklenmiş değerin altı = mute
 
-        if (guitarSource != null)
-            guitarSource.pitch = currentPitch;
-
-        debugCurrentPitch = currentPitch;
-    }
-
-    // --- Sensörden gelen 0-1 değeri pitch'e dönüştür ---
-    public void SetGuitarPitchFromSensor(float normalizedValue)
+    // --- Sensörden gelen 0-1 değeri gitar tonuna dönüştür ---
+    public void SetGuitarToneFromSensor(float normalizedValue)
     {
         debugNormalizedLux = normalizedValue;
 
-        // 0.5 → pitch=1.0 (normal)
-        // 0.0 → pitch=0.5 (kalın)
-        // 1.0 → pitch=2.0 (ince)
-        targetPitch = Mathf.Lerp(0.5f, 2.0f, normalizedValue);
-        NoteRecorder.Instance?.RecordGuitarPitch(normalizedValue);
+        // Dinamik aralık öğren: min ve max'ı sensör kullanıldıkça güncelle
+        if (normalizedValue < sensorObservedMin) sensorObservedMin = normalizedValue;
+        if (normalizedValue > sensorObservedMax) sensorObservedMax = normalizedValue;
+
+        // Gözlemlenen aralık içinde 0-1'e yeniden ölçekle
+        float range = sensorObservedMax - sensorObservedMin;
+        float rescaled = range > 0.05f                          // en az %5 fark varsa ölçekle
+            ? (normalizedValue - sensorObservedMin) / range
+            : normalizedValue;
+
+        // Sensör kapalıysa mute
+        if (rescaled < GUITAR_MUTE_THRESHOLD)
+        {
+            if (currentGuitarToneIndex != -1)
+            {
+                currentGuitarToneIndex = -1;
+                debugGuitarToneIndex   = -1;
+                if (guitarLoopActive && guitarSource != null)
+                    guitarSource.Stop();
+            }
+            return;
+        }
+
+        if (guitarToneClips == null || guitarToneClips.Length == 0) return;
+
+        int count     = guitarToneClips.Length;
+        int toneIndex = Mathf.Clamp(Mathf.FloorToInt(rescaled * count), 0, count - 1);
+
+        if (toneIndex == currentGuitarToneIndex) return; // ton değişmedi
+
+        currentGuitarToneIndex = toneIndex;
+        debugGuitarToneIndex   = toneIndex;
+
+        // Ton değişince kayıt (piyano/davul ile aynı yaklaşım)
+        NoteRecorder.Instance?.RecordGuitarTone(toneIndex);
+
+        if (guitarLoopActive) SwitchToTone(toneIndex);
     }
+
+    // Kayıt başlarken öğrenilen aralığı sıfırla — taze başlasın
+    public void ResetSensorRange()
+    {
+        sensorObservedMin = 1f;
+        sensorObservedMax = 0f;
+    }
+
+    // Playback sırasında doğrudan ton çal
+    public void PlayGuitarTone(int toneIndex)
+    {
+        if (guitarToneClips == null || toneIndex < 0 || toneIndex >= guitarToneClips.Length) return;
+        currentGuitarToneIndex = toneIndex;
+        debugGuitarToneIndex   = toneIndex;
+        if (guitarLoopActive) SwitchToTone(toneIndex);
+    }
+
+    private void SwitchToTone(int toneIndex)
+    {
+        if (guitarSource == null || guitarToneClips == null) return;
+        var clip = guitarToneClips[toneIndex];
+        if (clip == null) return;
+        guitarSource.clip = clip;
+        guitarSource.Play();
+    }
+
+    public int GetCurrentGuitarToneIndex() => currentGuitarToneIndex;
 
     // --- Gitar Mute ---
     public void SetGuitarMuted(bool muted)
@@ -153,17 +205,30 @@ public class AudioSynthesizer : MonoBehaviour
         Debug.Log("[AUDIO] [DAVUL] Kick!");
     }
 
-    // --- Getters ---
-    public float GetCurrentPitch() => currentPitch;
-
-    // --- SoundPresetManager tarafindan cagrilir ---
-    public void SetGuitarClip(AudioClip clip)
+    // --- Gitar Loop Kontrolü ---
+    public void StartGuitarLoop()
     {
-        if (clip == null || guitarSource == null) return;
-        guitarLoop = clip;
-        guitarSource.clip = clip;
-        guitarSource.Play();
-        Debug.Log($"[AUDIO] Gitar sesi degisti: {clip.name}");
+        if (guitarSource == null) return;
+        guitarLoopActive       = true;
+        currentGuitarToneIndex = -1; // sensör tekrar okuyunca uygun tonu seçer
+        Debug.Log("[AUDIO] Gitar loop başladı.");
+    }
+
+    public void StopGuitarLoop()
+    {
+        if (guitarSource == null) return;
+        guitarLoopActive = false;
+        guitarSource.Stop();
+        Debug.Log("[AUDIO] Gitar loop durduruldu.");
+    }
+
+    // Gitar ton kliplerini dışarıdan güncelle (ileride SoundPresetManager için)
+    public void SetGuitarToneClips(AudioClip[] clips)
+    {
+        if (clips == null || clips.Length == 0) return;
+        guitarToneClips        = clips;
+        currentGuitarToneIndex = -1;
+        Debug.Log($"[AUDIO] Gitar tonları güncellendi: {clips.Length} ton.");
     }
 
     public void SetPianoClips(AudioClip[] clips)

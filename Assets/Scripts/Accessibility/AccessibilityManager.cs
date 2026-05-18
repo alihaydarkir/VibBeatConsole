@@ -29,7 +29,7 @@ public class AccessibilityManager : MonoBehaviour
     // INSPECTOR
     // ─────────────────────────────────────────
     [Header("Erişilebilirlik Ayarları")]
-    [SerializeField] private bool  accessibilityEnabled = true;
+    [SerializeField] private bool  accessibilityEnabled = false;
     [SerializeField] [Range(0.5f, 2f)] private float speechRate  = 1.0f;
     [SerializeField] [Range(0.5f, 2f)] private float speechPitch = 1.0f;
 
@@ -61,12 +61,44 @@ public class AccessibilityManager : MonoBehaviour
         SetupEarconSource();
 
         if (Application.platform == RuntimePlatform.Android)
+        {
+            // Telefonda TalkBack / erişilebilirlik servisi açıksa otomatik aç
+            accessibilityEnabled = IsAndroidTouchExplorationEnabled();
+            Debug.Log($"[ACCESSIBILITY] Android erişilebilirlik servisi: {(accessibilityEnabled ? "AÇIK — otomatik etkinleştirildi" : "KAPALI — varsayılan kapalı")}");
             InitAndroidTTS();
+        }
         else
         {
+            // Editor'da Inspector değeri korunur (varsayılan false)
             ttsReady      = true;
             debugTtsReady = true;
             Debug.Log("[ACCESSIBILITY] Editor modu — TTS simüle edilecek.");
+        }
+    }
+
+    /// <summary>
+    /// Android TalkBack veya herhangi bir dokunmatik gezinti servisi açık mı kontrol eder.
+    /// android.view.accessibility.AccessibilityManager.isTouchExplorationEnabled() kullanır.
+    /// </summary>
+    private static bool IsAndroidTouchExplorationEnabled()
+    {
+        try
+        {
+            var unityPlayer  = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
+            var activity     = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
+            var context      = activity.Call<AndroidJavaObject>("getApplicationContext");
+            var a11yManager  = context.Call<AndroidJavaObject>("getSystemService", "accessibility");
+
+            if (a11yManager == null) return false;
+
+            bool serviceOn   = a11yManager.Call<bool>("isEnabled");
+            bool touchExplore = a11yManager.Call<bool>("isTouchExplorationEnabled");
+            return serviceOn && touchExplore;
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogWarning($"[ACCESSIBILITY] Erişilebilirlik kontrol hatası: {ex.Message}");
+            return false;
         }
     }
 

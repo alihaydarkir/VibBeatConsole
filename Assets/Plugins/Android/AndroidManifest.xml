@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest 
+<manifest
     xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.vibbeat.console">
 
-    <uses-feature 
+    <uses-feature
         android:name="android.hardware.sensor.light"
         android:required="true" />
 
-    <uses-permission 
+    <uses-permission
         android:name="android.permission.VIBRATE" />
 
     <application
@@ -15,10 +15,13 @@
         android:icon="@mipmap/app_icon">
 
         <activity
-            android:name="com.unity3d.player.UnityPlayerActivity"
-            android:theme="@style/UnityThemeSelector"
+            android:name="com.unity3d.player.UnityPlayerGameActivity"
+            android:theme="@style/Theme.AppCompat.NoActionBar"
+            android:exported="true"
             android:screenOrientation="landscape"
-            android:configChanges="orientation|keyboardHidden|screenSize">
+            android:launchMode="singleTask"
+            android:hardwareAccelerated="true"
+            android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|density|fontScale">
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

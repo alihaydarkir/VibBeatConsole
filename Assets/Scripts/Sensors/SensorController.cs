@@ -43,6 +43,17 @@ public class SensorController : MonoBehaviour
     // ─────────────────────────────────────────
     // BAŞLATMA
     // ─────────────────────────────────────────
+    private void Awake()
+    {
+        // AndroidLightSensorBridge.java "SensorController" ismiyle UnitySendMessage gönderir.
+        // GameObject adı farklıysa Java mesajları asla ulaşmaz — zorla düzelt.
+        if (gameObject.name != "SensorController")
+        {
+            Debug.LogWarning($"[SENSOR] GameObject adı '{gameObject.name}' → 'SensorController' olarak düzeltildi.");
+            gameObject.name = "SensorController";
+        }
+    }
+
     private void Start()
     {
         if (Application.platform == RuntimePlatform.Android)
