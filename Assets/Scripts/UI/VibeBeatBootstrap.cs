@@ -359,16 +359,15 @@ public class VibeBeatBootstrap : MonoBehaviour
     {
         if (recordStudioScreen == null)
         {
-            Debug.LogWarning("[BOOTSTRAP] RecordStudioScreen null — 'Add ONLY RecordStudio Screen (Safe)' çalıştır.");
+            Debug.LogWarning("[BOOTSTRAP] RecordStudioScreen null!");
             return;
         }
 
-        // Geri butonu
         Transform topBar = recordStudioScreen.transform.Find("TopBar");
         if (topBar != null)
             BindBtn(topBar, "BackButton", ShowMainConsole);
 
-        Debug.Log("[BOOTSTRAP] [OK] RecordStudio bağlandı.");
+        Debug.Log("[BOOTSTRAP] [OK] RecordStudio TopBar bağlandı.");
     }
 
     private void BindSoundStudio()

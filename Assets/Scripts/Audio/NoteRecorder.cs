@@ -169,8 +169,8 @@ public class NoteRecorder : MonoBehaviour
     public void StopPlayBack()
     {
         if (!isPlaying) return;
-        StopAllCoroutines();
         isPlaying = false;
+        StopAllCoroutines();
         OnStateChanged?.Invoke();
     }
 

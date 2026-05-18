@@ -2,58 +2,95 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-/// <summary>
-/// Kayıt Stüdyosu ekranının UI mantığı.
-/// NoteRecorder ile konuşur, buton durumlarını günceller.
-/// AutoUIBuilder tarafından sahneye eklenir.
-/// </summary>
 public class RecordStudioController : MonoBehaviour
 {
-    // ─── UI Referansları ───
-    private Button   recButton;
-    private Button   playButton;
+    // ─── Buton referansları ───
+    private Button   startButton;
+    private Button   listenButton;
     private Button   stopButton;
+    private Button   saveButton;
     private Button   clearButton;
+
+    // ─── CanvasGroup — disabled olunca alpha ile solar, Inspector renkleri bozulmaz ───
+    private CanvasGroup startCG;
+    private CanvasGroup listenCG;
+    private CanvasGroup stopCG;
+    private CanvasGroup saveCG;
+    private CanvasGroup clearCG;
+
+    // ─── Metin referansları ───
     private TMP_Text statusText;
     private TMP_Text durationText;
     private TMP_Text noteCountText;
     private TMP_Text loopText;
+    private TMP_Text infoText;
 
-    // ─── Renkler ───
-    private static readonly Color ColReady   = Hex("#FF0044");
-    private static readonly Color ColRecording = Hex("#FF0044");
-    private static readonly Color ColPlaying = Hex("#00FF88");
-    private static readonly Color ColStopped = Hex("#FFE600");
-    private static readonly Color ColDisabled = Hex("#333355");
+    // Renkler kaldırıldı — buton renkleri Inspector'dan ayarlanır, kod override etmez
 
+    // ─── Döngü ───
     private bool loopEnabled = false;
+
+    // ─── Son kaydedilmiş kayıt bilgisi ───
+    private bool  hasSaved       = false;
+    private int   savedNoteCount = 0;
+    private float savedDuration  = 0f;
+
+    // ─── Süre güncelleme throttle ───
     private float displayTimer = 0f;
 
+    private VibeBeatScreenManager screenManager;
+
     // ─────────────────────────────────────────
-    // KURULUM — AutoUIBuilder tarafından çağrılır
+    // KURULUM
     // ─────────────────────────────────────────
-    public void SetupReferences(
-        Button rec, Button play, Button stop, Button clear,
-        TMP_Text status, TMP_Text duration, TMP_Text noteCount, TMP_Text loop)
+    private void Awake()
     {
-        recButton     = rec;
-        playButton    = play;
-        stopButton    = stop;
-        clearButton   = clear;
-        statusText    = status;
-        durationText  = duration;
-        noteCountText = noteCount;
-        loopText      = loop;
+        var t = transform;
+        startButton  = t.Find("RecordButton")?.GetComponent<Button>();
+        listenButton = t.Find("PlayButton")?.GetComponent<Button>();
+        stopButton   = t.Find("StopButton")?.GetComponent<Button>();
+        saveButton   = t.Find("SaveButton")?.GetComponent<Button>();
+        clearButton  = t.Find("ClearButton")?.GetComponent<Button>();
+
+        statusText    = t.Find("StatusPanel/StatusText")?.GetComponent<TMP_Text>();
+        durationText  = t.Find("DurationPanel/DurationText")?.GetComponent<TMP_Text>();
+        noteCountText = t.Find("NoteCountPanel/CountText")?.GetComponent<TMP_Text>();
+        loopText      = t.Find("LoopPanel/LoopText")?.GetComponent<TMP_Text>();
+        infoText      = t.Find("InfoPanel/InfoText")?.GetComponent<TMP_Text>();
+
+        // CanvasGroup yoksa otomatik ekle — disabled'da alpha ile solar
+        startCG  = GetOrAddCG(startButton);
+        listenCG = GetOrAddCG(listenButton);
+        stopCG   = GetOrAddCG(stopButton);
+        saveCG   = GetOrAddCG(saveButton);
+        clearCG  = GetOrAddCG(clearButton);
 
         BindButtons();
-        UpdateUI();
     }
+
+    private static CanvasGroup GetOrAddCG(Button btn)
+    {
+        if (btn == null) return null;
+        var cg = btn.GetComponent<CanvasGroup>();
+        return cg != null ? cg : btn.gameObject.AddComponent<CanvasGroup>();
+    }
+
+    private void Start()
+    {
+        screenManager = FindFirstObjectByType<VibeBeatScreenManager>();
+    }
+
+    // edit-time uyumluluğu için boş bırakıldı
+    public void SetupReferences(
+        Button rec, Button play, Button stop, Button clear,
+        TMP_Text status, TMP_Text duration, TMP_Text noteCount, TMP_Text loop) { }
 
     private void BindButtons()
     {
-        recButton?.onClick.AddListener(OnRecordPressed);
-        playButton?.onClick.AddListener(OnPlayPressed);
+        startButton?.onClick.AddListener(OnStartPressed);
+        listenButton?.onClick.AddListener(OnListenPressed);
         stopButton?.onClick.AddListener(OnStopPressed);
+        saveButton?.onClick.AddListener(OnSavePressed);
         clearButton?.onClick.AddListener(OnClearPressed);
         loopText?.GetComponentInParent<Button>()?.onClick.AddListener(OnLoopToggle);
     }
@@ -74,21 +111,23 @@ public class RecordStudioController : MonoBehaviour
     // ─────────────────────────────────────────
     // BUTON OLAYLARI
     // ─────────────────────────────────────────
-    private void OnRecordPressed()
+
+    // BAŞLAT — kayıt başlat ve ana ekrana geç
+    private void OnStartPressed()
     {
         var rec = NoteRecorder.Instance;
-        if (rec == null) return;
+        if (rec == null || rec.IsRecording) return;
 
-        if (rec.IsRecording)
-            rec.StopRecording();
-        else
-            rec.StartRecording();
+        if (rec.IsPlaying) rec.StopPlayBack();
+        rec.StartRecording();
+        screenManager?.ShowMainConsole();
     }
 
-    private void OnPlayPressed()
+    // DİNLE — kaydı oynat
+    private void OnListenPressed()
     {
         var rec = NoteRecorder.Instance;
-        if (rec == null || !rec.HasRecording) return;
+        if (rec == null || !rec.HasRecording || rec.IsRecording || rec.IsPlaying) return;
 
         if (loopEnabled)
             StartCoroutine(LoopPlayBack(rec));
@@ -101,11 +140,11 @@ public class RecordStudioController : MonoBehaviour
         while (loopEnabled && rec.HasRecording)
         {
             rec.PlayBack();
-            float dur = rec.GetRecordingDuration();
-            yield return new WaitForSeconds(dur + 0.3f);
+            yield return new WaitForSeconds(rec.GetRecordingDuration() + 0.3f);
         }
     }
 
+    // DURDUR — kayıt veya oynatmayı durdur
     private void OnStopPressed()
     {
         StopAllCoroutines();
@@ -113,10 +152,29 @@ public class RecordStudioController : MonoBehaviour
         NoteRecorder.Instance?.StopRecording();
     }
 
+    // KAYDET — mevcut kaydı "Son Kayıt" paneline kaydet
+    private void OnSavePressed()
+    {
+        var rec = NoteRecorder.Instance;
+        if (rec == null || !rec.HasRecording || rec.IsRecording || rec.IsPlaying) return;
+
+        savedNoteCount = rec.NoteCount;
+        savedDuration  = rec.GetRecordingDuration();
+        hasSaved       = true;
+
+        UpdateUI();
+        Debug.Log($"[STUDIO] Kayıt kaydedildi: {savedNoteCount} nota, {FormatDuration(savedDuration)}");
+    }
+
+    // SİL — her şeyi temizle
     private void OnClearPressed()
     {
         StopAllCoroutines();
         NoteRecorder.Instance?.ClearRecording();
+        hasSaved       = false;
+        savedNoteCount = 0;
+        savedDuration  = 0f;
+        UpdateUI();
     }
 
     private void OnLoopToggle()
@@ -130,7 +188,6 @@ public class RecordStudioController : MonoBehaviour
     // ─────────────────────────────────────────
     private void Update()
     {
-        // Süreyi her frame güncelle
         displayTimer += Time.deltaTime;
         if (displayTimer < 0.1f) return;
         displayTimer = 0f;
@@ -139,14 +196,9 @@ public class RecordStudioController : MonoBehaviour
         if (rec == null) return;
 
         if (durationText != null)
-        {
-            float dur = rec.GetRecordingDuration();
-            int minutes = (int)(dur / 60f);
-            int seconds = (int)(dur % 60f);
-            durationText.text = $"{minutes:00}:{seconds:00}";
-        }
+            durationText.text = FormatDuration(rec.GetRecordingDuration());
 
-        if (noteCountText != null && rec.IsRecording)
+        if (noteCountText != null && (rec.IsRecording || rec.IsPlaying))
             noteCountText.text = rec.NoteCount.ToString();
     }
 
@@ -155,87 +207,62 @@ public class RecordStudioController : MonoBehaviour
         var rec = NoteRecorder.Instance;
         if (rec == null) return;
 
-        // Buton durumları
-        bool hasRec = rec.HasRecording;
+        bool hasRec    = rec.HasRecording;
+        bool recording = rec.IsRecording;
+        bool playing   = rec.IsPlaying;
+        bool idle      = !recording && !playing;
 
-        // REC butonu — kayıt varsa kırmızı yanıp söner gibi metin
-        if (recButton != null)
-        {
-            var lbl = recButton.GetComponentInChildren<TMP_Text>();
-            if (lbl != null)
-                lbl.text = rec.IsRecording ? "■ DURDUR" : "● KAYDET";
-            SetBtnColor(recButton, rec.IsRecording ? ColRecording : ColReady);
-        }
+        // ── Buton aktifliği — alpha ile solar, Inspector renkleri bozulmaz ──
+        SetInteractable(startButton,  startCG,  idle);
+        SetInteractable(listenButton, listenCG, hasRec && idle);
+        SetInteractable(stopButton,   stopCG,   recording || playing);
+        SetInteractable(saveButton,   saveCG,   hasRec && idle);
+        SetInteractable(clearButton,  clearCG,  (hasRec || hasSaved) && idle);
 
-        // OYNAT — kayıt yoksa soluk
-        if (playButton != null)
-            SetBtnColor(playButton, hasRec && !rec.IsRecording ? ColPlaying : ColDisabled);
-
-        // DURDUR
-        if (stopButton != null)
-            SetBtnColor(stopButton, (rec.IsRecording || rec.IsPlaying) ? ColStopped : ColDisabled);
-
-        // SİL
-        if (clearButton != null)
-            SetBtnColor(clearButton, hasRec ? Hex("#FF4400") : ColDisabled);
-
-        // Durum metni
+        // ── Durum metni ────────────────────────────────────────────────────
         if (statusText != null)
         {
-            if (rec.IsRecording)
-            {
+            if (recording)
                 statusText.text = "● KAYIT YAPILIYOR...";
-                statusText.color = ColRecording;
-            }
-            else if (rec.IsPlaying)
-            {
-                statusText.text = "▶ OYNATILIYOR";
-                statusText.color = ColPlaying;
-            }
+            else if (playing)
+                statusText.text = " DİNLENİYOR";
+            else if (hasRec && hasSaved)
+                statusText.text = $"Kaydedildi — {savedNoteCount} nota";
             else if (hasRec)
-            {
-                statusText.text = $"■ Kayıt Hazır — {rec.NoteCount} nota";
-                statusText.color = ColStopped;
-            }
+                statusText.text = $" Durduruldu — {rec.NoteCount} nota (kaydet?)";
             else
-            {
-                statusText.text = "● Kayıt Hazır";
-                statusText.color = Hex("#555577");
-            }
+                statusText.text = "● Kayit Bekleniyor";
         }
 
-        // Nota sayacı
-        if (noteCountText != null)
-            noteCountText.text = rec.NoteCount.ToString();
+        // ── Sayaçlar ───────────────────────────────────────────────────────
+        if (noteCountText != null) noteCountText.text = rec.NoteCount.ToString();
 
-        // Döngü metni
+        // ── Döngü metni ────────────────────────────────────────────────────
         if (loopText != null)
+            loopText.text = loopEnabled ? "AÇIK" : "KAPALI";
+
+        // ── Son Kayıt paneli ────────────────────────────────────────────────
+        if (infoText != null)
         {
-            loopText.text  = loopEnabled ? "AÇIK" : "KAPALI";
-            loopText.color = loopEnabled ? ColPlaying : Hex("#555577");
+            if (hasSaved)
+                infoText.text = $"Notalar: {savedNoteCount}\nSüre: {FormatDuration(savedDuration)}\n\nDİNLE butonuyla oynat.";
+            else if (hasRec)
+                infoText.text = "Kayit durduruldu.\nKaydetmek icin  KAYDET'e bas.";
+            else
+                infoText.text = "Henüz kayit yok.\nBaslatip durdurduktan sonra KAYDET'e bas.";
         }
     }
 
-    private void SetBtnColor(Button btn, Color c)
+    private static void SetInteractable(Button btn, CanvasGroup cg, bool active)
     {
-        var img = btn.GetComponent<Image>();
-        if (img != null) img.color = new Color(c.r * 0.15f, c.g * 0.15f, c.b * 0.15f, 1f);
-
-        var lbl = btn.GetComponentInChildren<TMP_Text>();
-        if (lbl != null) lbl.color = c;
-
-        // Alt border rengini güncelle
-        var border = btn.transform.Find(btn.name.Replace("Button", "") + "Border")
-                  ?? btn.transform.GetChild(0);
-        if (border != null)
-        {
-            var bi = border.GetComponent<Image>();
-            if (bi != null) bi.color = c;
-        }
+        if (btn == null) return;
+        btn.interactable = active;
+        if (cg != null) cg.alpha = active ? 1f : 0.05f;
     }
 
-    private static Color Hex(string h)
+    private static string FormatDuration(float sec)
     {
-        ColorUtility.TryParseHtmlString(h, out var c); return c;
+        int m = (int)(sec / 60f), s = (int)(sec % 60f);
+        return $"{m:00}:{s:00}";
     }
 }

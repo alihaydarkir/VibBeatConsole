@@ -18,7 +18,6 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
     private static readonly Color BgDeep      = Hex("#080C14");  // referans: cok koyu lacivert
     private static readonly Color BgSurface   = Hex("#0D1520");  // panel arkaplan
     private static readonly Color BgCard      = Hex("#111C2A");  // kart arkaplan
-    private static readonly Color BgBorder    = Hex("#1A2C40");  // ince sinir
     private static readonly Color GuitarCyan  = Hex("#00E5FF");  // parlak cyan
     private static readonly Color PianoOrange = Hex("#FF9500");  // sicak turuncu
     private static readonly Color DrumMagenta = Hex("#FF0099");  // canli magenta
@@ -804,58 +803,58 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
             return;
         }
 
-        // Zaten varsa sil — temiz yeniden kur
-        var existing = canvasGO.transform.Find("RecordStudioScreen");
-        if (existing != null)
-        {
-            DestroyImmediate(existing.gameObject);
-            Debug.Log("[VibeBeat] Eski RecordStudioScreen silindi, yeniden kuruluyor.");
-        }
-
         // NoteRecorder yoksa ekle
         if (FindFirstObjectByType<NoteRecorder>() == null)
         {
-            var recorderGO = GameObject.Find("VibBeatSystems")
-                          ?? GameObject.Find("VibBeatMasterController")
-                          ?? canvasGO;
+            var recorderGO = GameObject.Find("VibBeatSystems");
+            if (recorderGO == null) recorderGO = GameObject.Find("VibBeatMasterController");
+            if (recorderGO == null) recorderGO = canvasGO;
             recorderGO.AddComponent<NoteRecorder>();
             Debug.Log($"[VibeBeat] NoteRecorder → {recorderGO.name} eklendi.");
         }
 
-        // RecordStudio ekranını kur
-        var record = RecordStudioScreen(canvasGO.transform);
-        record.SetActive(false);
+        // RecordStudio ekranı — sadece yoksa inşa et, varsa koru
+        var existing = canvasGO.transform.Find("RecordStudioScreen");
+        GameObject record;
+        if (existing != null)
+        {
+            record = existing.gameObject;
+            Debug.Log("[VibeBeat] RecordStudioScreen zaten var, korundu (UI değişikliklerin bozulmadı).");
+        }
+        else
+        {
+            record = RecordStudioScreen(canvasGO.transform);
+            record.SetActive(false);
+            Debug.Log("[VibeBeat] RecordStudioScreen yeni inşa edildi.");
+        }
 
         // ScreenManager'a bağla
         sm.recordStudioScreen = record;
 
-        // MainConsoleScreen TopBar'ına REC butonu ekle (yoksa)
+        // ── MainConsoleScreen işlemleri ───────────────────────────────────────
         var mainScreen = canvasGO.transform.Find("MainConsoleScreen");
         if (mainScreen != null)
         {
+            // TopBar'daki REC butonu — ekle veya yeniden bağla
             var topBar = mainScreen.Find("TopBar");
-            if (topBar != null && topBar.Find("RecordButton") == null)
+            if (topBar != null)
             {
-                var recPanel = Panel("RecordButton", topBar, Hex("#1A0000"),
-                    0.60f, 0.74f, 0.08f, 0.92f);
-                var recBtn = recPanel.AddComponent<Button>();
-                recBtn.transition = Selectable.Transition.None;
-                recBtn.onClick.AddListener(sm.ShowRecordStudio);
-                Panel("RecBorder", recPanel.transform, Hex("#FF0044"), 0f, 1f, 0.93f, 1f);
-                Txt(recPanel, "Icon", "REC", 20, Hex("#FF0044"),
-                    Anchor.Center, 0f, 1f, 0f, 1f, bold: true);
-                Debug.Log("[VibeBeat] REC butonu TopBar'a eklendi.");
-            }
-            else if (topBar != null && topBar.Find("RecordButton") != null)
-            {
-                // Butonu yeniden bağla
-                var recBtn = topBar.Find("RecordButton").GetComponent<Button>();
-                if (recBtn != null)
+                var existingRecBtn = topBar.Find("RecordButton");
+                if (existingRecBtn == null)
                 {
-                    recBtn.onClick.RemoveAllListeners();
-                    recBtn.onClick.AddListener(sm.ShowRecordStudio);
+                    var recPanel = Panel("RecordButton", topBar, Hex("#1A0000"),
+                        0.60f, 0.74f, 0.08f, 0.92f);
+                    recPanel.AddComponent<Button>().transition = Selectable.Transition.None;
+                    Panel("RecBorder", recPanel.transform, Hex("#FF0044"), 0f, 1f, 0.93f, 1f);
+                    Txt(recPanel, "Icon", "REC", 20, Hex("#FF0044"),
+                        Anchor.Center, 0f, 1f, 0f, 1f, bold: true);
+                    Debug.Log("[VibeBeat] REC butonu TopBar'a eklendi.");
                 }
+                // Runtime'da Bootstrap/RecordingStatusOverlay butonu bağlar
             }
+
+            // RecordingStatusOverlay — kayıt şeridi (UI hiyerarşisi + logic component)
+            BuildRecordingOverlay(mainScreen);
         }
 
 #if UNITY_EDITOR
@@ -863,6 +862,51 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
             UnityEngine.SceneManagement.SceneManager.GetActiveScene());
         Debug.Log("[VibeBeat] ✅ RecordStudio eklendi — Ctrl+S ile kaydet.");
 #endif
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // KAYIT ŞERİDİ — MainConsoleScreen'e eklenir, Inspector'dan düzenlenebilir
+    // ═════════════════════════════════════════════════════════════════════════
+    private void BuildRecordingOverlay(Transform mainScreen)
+    {
+        // Varsa temizle
+        var old = mainScreen.Find("RecordingOverlayPanel");
+        if (old != null) DestroyImmediate(old.gameObject);
+        if (mainScreen.TryGetComponent<RecordingStatusOverlay>(out var oldComp))
+            DestroyImmediate(oldComp);
+
+        // Ana şerit — ekranın altında, tam genişlik
+        var panel = Panel("RecordingOverlayPanel", mainScreen,
+            Hex("#0A0005"), 0f, 1f, 0f, 0.10f);
+
+        // Sol renkli kenar çizgisi
+        Panel("Edge", panel.transform, Hex("#FF0044"), 0f, 0.005f, 0f, 1f);
+
+        // ● Durum metni
+        Txt(panel, "StatusLabel", "● KAYIT YAPILIYOR",
+            17, Hex("#FF0044"), Anchor.Left, 0.01f, 0.44f, 0.08f, 0.92f, bold: true);
+
+        // Süre sayacı
+        Txt(panel, "TimerLabel", "00:00",
+            17, new Color(0.85f, 0.85f, 1f, 1f), Anchor.Center, 0.44f, 0.58f, 0.08f, 0.92f);
+
+        // ■ DURDUR butonu
+        var stopGO = Panel("StopBtn", panel.transform, Hex("#1A1600"),
+            0.59f, 0.78f, 0.06f, 0.94f);
+        stopGO.AddComponent<Button>().transition = Selectable.Transition.None;
+        Panel("Border", stopGO.transform, Hex("#FFE600"), 0f, 1f, 0f, 0.07f);
+        Txt(stopGO, "Label", "■ DURDUR", 15, Hex("#FFE600"), Anchor.Center, 0f, 1f, 0f, 1f, bold: true);
+
+        // STÜDYO › butonu
+        var studioGO = Panel("StudioBtn", panel.transform, Hex("#001A1A"),
+            0.80f, 0.99f, 0.06f, 0.94f);
+        studioGO.AddComponent<Button>().transition = Selectable.Transition.None;
+        Panel("Border", studioGO.transform, Hex("#00E5FF"), 0f, 1f, 0f, 0.07f);
+        Txt(studioGO, "Label", "STÜDYO ›", 15, Hex("#00E5FF"), Anchor.Center, 0f, 1f, 0f, 1f, bold: true);
+
+        // Logic component
+        mainScreen.gameObject.AddComponent<RecordingStatusOverlay>();
+        Debug.Log("[VibeBeat] RecordingOverlayPanel sahne hiyerarşisine eklendi.");
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -1016,69 +1060,57 @@ public class VibeBeatAutoUIBuilder : MonoBehaviour
         backBtn.GetComponent<Button>().onClick.AddListener(sm.ShowMainConsole);
         Txt(backBtn, "Icon", "<  Geri", 20, TextGray, Anchor.Left, 0.05f, 1f, 0.1f, 0.9f);
 
-        // ── Durum Göstergesi (üst orta) ─────────────────────────────────────
+        // ── Durum Göstergesi ────────────────────────────────────────────────
         var statusPanel = Panel("StatusPanel", root.transform, BgSurface,
             0.05f, 0.95f, 0.80f, 0.895f);
         Panel("StatusBorder", statusPanel.transform, Hex("#FF0044"), 0f, 1f, 0f, 0.06f);
-        var statusTxt = Txt(statusPanel, "StatusText", "● Kayıt Hazır",
+        Txt(statusPanel, "StatusText", "● Kayıt Bekleniyor",
             22, Hex("#FF0044"), Anchor.Center, 0.05f, 0.95f, 0.1f, 0.9f, bold: true);
 
-        // ── Süre göstergesi ──────────────────────────────────────────────────
-        var durationPanel = Panel("DurationPanel", root.transform, BgCard,
-            0.30f, 0.70f, 0.68f, 0.78f);
-        Txt(durationPanel, "DurationText", "00:00", 36, TextWhite,
-            Anchor.Center, 0f, 1f, 0f, 1f, bold: true);
-
-        // ── Nota sayacı ──────────────────────────────────────────────────────
+        // ── Süre + Sayaç + Döngü ────────────────────────────────────────────
         var countPanel = Panel("NoteCountPanel", root.transform, BgCard,
             0.05f, 0.30f, 0.68f, 0.78f);
         Txt(countPanel, "Label", "NOTA", 14, TextGray, Anchor.Center, 0f, 1f, 0.55f, 1f);
         Txt(countPanel, "CountText", "0", 30, GuitarCyan, Anchor.Center, 0f, 1f, 0f, 0.6f, bold: true);
+
+        var durationPanel = Panel("DurationPanel", root.transform, BgCard,
+            0.30f, 0.70f, 0.68f, 0.78f);
+        Txt(durationPanel, "DurationText", "00:00", 36, TextWhite,
+            Anchor.Center, 0f, 1f, 0f, 1f, bold: true);
 
         var loopPanel = Panel("LoopPanel", root.transform, BgCard,
             0.70f, 0.95f, 0.68f, 0.78f);
         Txt(loopPanel, "Label", "DÖNGÜ", 14, TextGray, Anchor.Center, 0f, 1f, 0.55f, 1f);
         Txt(loopPanel, "LoopText", "KAPALI", 18, Hex("#555577"), Anchor.Center, 0f, 1f, 0f, 0.6f, bold: true);
 
-        // ── Ana Kontrol Butonları ────────────────────────────────────────────
-        // KAYDET butonu (kırmızı - büyük)
-        var recBtn = GlowBtn(root.transform, "RecordButton",
-            "● KAYDET", Hex("#FF0044"), 0.05f, 0.48f, 0.46f, 0.64f);
+        // ── Satır 1 — Büyük butonlar: BAŞLAT + DİNLE ────────────────────────
+        GlowBtn(root.transform, "RecordButton",
+            "● BAŞLAT", Hex("#FF0044"), 0.05f, 0.48f, 0.46f, 0.64f);
 
-        // OYNAT butonu (yeşil)
-        var playBtn = GlowBtn(root.transform, "PlayButton",
-            "▶ OYNAT", Hex("#00FF88"), 0.52f, 0.95f, 0.46f, 0.64f);
+        GlowBtn(root.transform, "PlayButton",
+            "▶ DİNLE", Hex("#00FF88"), 0.52f, 0.95f, 0.46f, 0.64f);
 
-        // DURDUR butonu
-        var stopBtn = GlowBtn(root.transform, "StopButton",
-            "■ DURDUR", Hex("#FFE600"), 0.05f, 0.48f, 0.28f, 0.43f);
+        // ── Satır 2 — Küçük butonlar: DURDUR + KAYDET + SİL ─────────────────
+        GlowBtn(root.transform, "StopButton",
+            "■ DURDUR", Hex("#FFE600"), 0.05f, 0.36f, 0.28f, 0.43f);
 
-        // SİL butonu
-        var clearBtn = GlowBtn(root.transform, "ClearButton",
-            "✕ SİL", Hex("#FF4400"), 0.52f, 0.95f, 0.28f, 0.43f);
+        GlowBtn(root.transform, "SaveButton",
+            "✔ KAYDET", Hex("#00E5FF"), 0.38f, 0.63f, 0.28f, 0.43f);
 
-        // ── Kayıt geçmişi bilgi kutusu ───────────────────────────────────────
+        GlowBtn(root.transform, "ClearButton",
+            "✕ SİL", Hex("#FF4400"), 0.65f, 0.95f, 0.28f, 0.43f);
+
+        // ── Son Kayıt bilgi kutusu ───────────────────────────────────────────
         var infoPanel = Panel("InfoPanel", root.transform, BgCard,
             0.05f, 0.95f, 0.08f, 0.25f);
         Panel("InfoBorder", infoPanel.transform, Hex("#1A2C40"), 0f, 0.005f, 0f, 1f);
         Txt(infoPanel, "InfoTitle", "SON KAYIT", 14, TextGray,
             Anchor.Left, 0.03f, 0.5f, 0.75f, 1f);
         Txt(infoPanel, "InfoText",
-            "Henüz kayıt yok.\nAna konsolda çalmaya başlayın,\nardından KAYDET butonuna basın.",
+            "Henüz kaydedilmiş kayıt yok.\nBaşlatıp durdurduktan sonra KAYDET'e bas.",
             16, Dim, Anchor.Center, 0.03f, 0.97f, 0.05f, 0.72f);
 
-        // ── RecordStudioController bağlantısı ────────────────────────────────
-        var controller = root.AddComponent<RecordStudioController>();
-        controller.SetupReferences(
-            recBtn.GetComponent<Button>(),
-            playBtn.GetComponent<Button>(),
-            stopBtn.GetComponent<Button>(),
-            clearBtn.GetComponent<Button>(),
-            statusTxt,
-            root.transform.Find("DurationPanel/DurationText")?.GetComponent<TMPro.TextMeshProUGUI>(),
-            root.transform.Find("NoteCountPanel/CountText")?.GetComponent<TMPro.TextMeshProUGUI>(),
-            root.transform.Find("LoopPanel/LoopText")?.GetComponent<TMPro.TextMeshProUGUI>()
-        );
+        root.AddComponent<RecordStudioController>();
 
         root.SetActive(false);
         return root;
