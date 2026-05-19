@@ -25,9 +25,7 @@ public class RecordStudioController : MonoBehaviour
     private TMP_Text loopText;
     private TMP_Text infoText;
 
-    // Renkler kaldırıldı — buton renkleri Inspector'dan ayarlanır, kod override etmez
-
-    // ─── Döngü ───
+    // ─── Döngü (NoteRecorder tekrar oynatma toggle) ───
     private bool loopEnabled = false;
 
     // ─── Son kaydedilmiş kayıt bilgisi ───
@@ -37,6 +35,9 @@ public class RecordStudioController : MonoBehaviour
 
     // ─── Süre güncelleme throttle ───
     private float displayTimer = 0f;
+
+    // ─── Ana ekrana kayıt için geçildiğinde loop durdurulmasın ───
+    private bool _recordingGoToMain = false;
 
     private VibeBeatScreenManager screenManager;
 
@@ -58,7 +59,6 @@ public class RecordStudioController : MonoBehaviour
         loopText      = t.Find("LoopPanel/LoopText")?.GetComponent<TMP_Text>();
         infoText      = t.Find("InfoPanel/InfoText")?.GetComponent<TMP_Text>();
 
-        // CanvasGroup yoksa otomatik ekle — disabled'da alpha ile solar
         startCG  = GetOrAddCG(startButton);
         listenCG = GetOrAddCG(listenButton);
         stopCG   = GetOrAddCG(stopButton);
@@ -80,7 +80,6 @@ public class RecordStudioController : MonoBehaviour
         screenManager = FindFirstObjectByType<VibeBeatScreenManager>();
     }
 
-    // edit-time uyumluluğu için boş bırakıldı
     public void SetupReferences(
         Button rec, Button play, Button stop, Button clear,
         TMP_Text status, TMP_Text duration, TMP_Text noteCount, TMP_Text loop) { }
@@ -97,8 +96,21 @@ public class RecordStudioController : MonoBehaviour
 
     private void OnEnable()
     {
+        StopGuitar();
+        _recordingGoToMain = false;
+
         if (NoteRecorder.Instance != null)
             NoteRecorder.Instance.OnStateChanged += UpdateUI;
+
+        // LoopRecorder backing track: loop varsa otomatik başlat
+        var loop = LoopRecorder.Instance;
+        if (loop != null)
+        {
+            loop.OnStateChanged += OnLoopStateChanged;
+            if (loop.HasLoop && loop.CurrentState != LoopRecorder.State.Playing)
+                loop.StartPlayback();
+        }
+
         UpdateUI();
     }
 
@@ -106,28 +118,69 @@ public class RecordStudioController : MonoBehaviour
     {
         if (NoteRecorder.Instance != null)
             NoteRecorder.Instance.OnStateChanged -= UpdateUI;
+
+        var loop = LoopRecorder.Instance;
+        if (loop != null)
+        {
+            loop.OnStateChanged -= OnLoopStateChanged;
+            // Kayıt için ana ekrana geçiliyorsa loop durmaya devam etsin
+            if (!_recordingGoToMain)
+                loop.StopPlayback();
+        }
+        _recordingGoToMain = false;
+    }
+
+    private void OnLoopStateChanged(LoopRecorder.State _) => UpdateUI();
+
+    private static void StopGuitar()
+    {
+        if (AudioSynthesizer.Instance != null)
+            AudioSynthesizer.Instance.StopGuitarLoop();
+    }
+
+    private static void StartGuitar()
+    {
+        if (AudioSynthesizer.Instance != null)
+            AudioSynthesizer.Instance.StartGuitarLoop();
     }
 
     // ─────────────────────────────────────────
     // BUTON OLAYLARI
     // ─────────────────────────────────────────
 
-    // BAŞLAT — kayıt başlat ve ana ekrana geç
+    // BAŞLAT — loop çalarken üstüne kayıt için ana ekrana geç
     private void OnStartPressed()
     {
         var rec = NoteRecorder.Instance;
         if (rec == null || rec.IsRecording) return;
 
         if (rec.IsPlaying) rec.StopPlayBack();
+
+        // Loop backing track — varsa başlat, yoksa da devam et
+        var loop = LoopRecorder.Instance;
+        if (loop != null && loop.HasLoop && loop.CurrentState != LoopRecorder.State.Playing)
+            loop.StartPlayback();
+
+        StartGuitar();
         rec.StartRecording();
+
+        // Ana ekrana geç — loop orada çalmaya devam eder
+        _recordingGoToMain = true;
         screenManager?.ShowMainConsole();
     }
 
-    // DİNLE — kaydı oynat
+    // DİNLE — loop + kayıt birlikte oynat
     private void OnListenPressed()
     {
         var rec = NoteRecorder.Instance;
         if (rec == null || !rec.HasRecording || rec.IsRecording || rec.IsPlaying) return;
+
+        StartGuitar();
+
+        // Loop backing track başlat
+        var loop = LoopRecorder.Instance;
+        if (loop != null && loop.HasLoop && loop.CurrentState != LoopRecorder.State.Playing)
+            loop.StartPlayback();
 
         if (loopEnabled)
             StartCoroutine(LoopPlayBack(rec));
@@ -144,15 +197,15 @@ public class RecordStudioController : MonoBehaviour
         }
     }
 
-    // DURDUR — kayıt veya oynatmayı durdur
+    // DURDUR — kayıt, oynatma ve backing loop durdur
     private void OnStopPressed()
     {
         StopAllCoroutines();
-        NoteRecorder.Instance?.StopPlayBack();
-        NoteRecorder.Instance?.StopRecording();
+        if (NoteRecorder.Instance != null) { NoteRecorder.Instance.StopPlayBack(); NoteRecorder.Instance.StopRecording(); }
+        if (LoopRecorder.Instance != null) LoopRecorder.Instance.StopPlayback();
     }
 
-    // KAYDET — mevcut kaydı "Son Kayıt" paneline kaydet
+    // KAYDET
     private void OnSavePressed()
     {
         var rec = NoteRecorder.Instance;
@@ -163,14 +216,15 @@ public class RecordStudioController : MonoBehaviour
         hasSaved       = true;
 
         UpdateUI();
-        Debug.Log($"[STUDIO] Kayıt kaydedildi: {savedNoteCount} nota, {FormatDuration(savedDuration)}");
+        Debug.Log($"[STUDIO] Kaydedildi: {savedNoteCount} nota, {FormatDuration(savedDuration)}");
     }
 
-    // SİL — her şeyi temizle
+    // SİL
     private void OnClearPressed()
     {
         StopAllCoroutines();
-        NoteRecorder.Instance?.ClearRecording();
+        if (NoteRecorder.Instance != null) NoteRecorder.Instance.ClearRecording();
+        if (LoopRecorder.Instance != null) LoopRecorder.Instance.StopPlayback();
         hasSaved       = false;
         savedNoteCount = 0;
         savedDuration  = 0f;
@@ -212,44 +266,52 @@ public class RecordStudioController : MonoBehaviour
         bool playing   = rec.IsPlaying;
         bool idle      = !recording && !playing;
 
-        // ── Buton aktifliği — alpha ile solar, Inspector renkleri bozulmaz ──
+        var  loop        = LoopRecorder.Instance;
+        bool hasLoop     = loop != null && loop.HasLoop;
+        bool loopPlaying = loop != null && loop.CurrentState == LoopRecorder.State.Playing;
+
+        // ── Buton aktifliği ─────────────────────────────────────────────────
         SetInteractable(startButton,  startCG,  idle);
         SetInteractable(listenButton, listenCG, hasRec && idle);
-        SetInteractable(stopButton,   stopCG,   recording || playing);
+        SetInteractable(stopButton,   stopCG,   recording || playing || loopPlaying);
         SetInteractable(saveButton,   saveCG,   hasRec && idle);
         SetInteractable(clearButton,  clearCG,  (hasRec || hasSaved) && idle);
 
-        // ── Durum metni ────────────────────────────────────────────────────
+        // ── Durum metni ─────────────────────────────────────────────────────
         if (statusText != null)
         {
             if (recording)
                 statusText.text = "● KAYIT YAPILIYOR...";
             else if (playing)
-                statusText.text = " DİNLENİYOR";
+                statusText.text = "DİNLENİYOR";
             else if (hasRec && hasSaved)
                 statusText.text = $"Kaydedildi — {savedNoteCount} nota";
             else if (hasRec)
-                statusText.text = $" Durduruldu — {rec.NoteCount} nota (kaydet?)";
+                statusText.text = $"Durduruldu — {rec.NoteCount} nota (kaydet?)";
             else
-                statusText.text = "● Kayit Bekleniyor";
+                statusText.text = "Kayit Bekleniyor";
         }
 
-        // ── Sayaçlar ───────────────────────────────────────────────────────
+        // ── Sayaçlar ────────────────────────────────────────────────────────
         if (noteCountText != null) noteCountText.text = rec.NoteCount.ToString();
 
-        // ── Döngü metni ────────────────────────────────────────────────────
+        // ── Döngü metni ─────────────────────────────────────────────────────
         if (loopText != null)
             loopText.text = loopEnabled ? "AÇIK" : "KAPALI";
 
-        // ── Son Kayıt paneli ────────────────────────────────────────────────
+        // ── Bilgi paneli — loop backing durumu ──────────────────────────────
         if (infoText != null)
         {
+            string loopLine = hasLoop
+                ? (loopPlaying ? "Loop: ÇALIYOR (backing track)" : "Loop: HAZIR")
+                : "Loop yok — ana ekranda loop olustur";
+
             if (hasSaved)
-                infoText.text = $"Notalar: {savedNoteCount}\nSüre: {FormatDuration(savedDuration)}\n\nDİNLE butonuyla oynat.";
+                infoText.text = $"Notalar: {savedNoteCount}\nSure: {FormatDuration(savedDuration)}\n\n{loopLine}";
             else if (hasRec)
-                infoText.text = "Kayit durduruldu.\nKaydetmek icin  KAYDET'e bas.";
+                infoText.text = $"Kayit durduruldu.\nKaydetmek icin KAYDET'e bas.\n\n{loopLine}";
             else
-                infoText.text = "Henüz kayit yok.\nBaslatip durdurduktan sonra KAYDET'e bas.";
+                infoText.text = $"Henuz kayit yok.\nBaslatip durdurduktan sonra KAYDET'e bas.\n\n{loopLine}";
         }
     }
 

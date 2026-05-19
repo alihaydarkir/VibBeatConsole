@@ -24,6 +24,7 @@ public class NoteRecorder : MonoBehaviour
     private bool  isPlaying   = false;
     private float recordStart = 0f;
 
+
     // Public durum sorguları — UI butonları bunlara bakacak
     public bool IsRecording => isRecording;
     public bool IsPlaying   => isPlaying;
@@ -49,6 +50,8 @@ public class NoteRecorder : MonoBehaviour
         recordedNotes.Clear();
         recordStart = Time.time;
         isRecording = true;
+        // Her kayıtta dinamik aralık sıfırlansın — taze öğrensin
+        AudioSynthesizer.Instance?.ResetSensorRange();
         OnStateChanged?.Invoke();
         Debug.Log("[RECORDER] ● Kayıt başladı.");
     }
@@ -96,22 +99,15 @@ public class NoteRecorder : MonoBehaviour
         });
     }
 
-    public void RecordGuitarPitch(float normalizedValue)
+    // MasterController tarafından ton değişince çağrılır
+    public void RecordGuitarTone(int toneIndex)
     {
         if (!isRecording) return;
-        // Küçük değişimleri filtrele — gitar sürekli veri üretir
-        if (recordedNotes.Count > 0)
-        {
-            var last = recordedNotes[recordedNotes.Count - 1];
-            if (last.instrument == "guitar" &&
-                Mathf.Abs(last.pitchValue - normalizedValue) < 0.05f) return;
-        }
         recordedNotes.Add(new NoteEvent
         {
             time       = Time.time - recordStart,
             instrument = "guitar",
-            noteIndex  = -1,
-            pitchValue = normalizedValue
+            noteIndex  = toneIndex
         });
     }
 
@@ -157,7 +153,7 @@ public class NoteRecorder : MonoBehaviour
             {
                 case "piano":  synth.PlayPianoNote(note.noteIndex);          break;
                 case "drum":   synth.PlayDrumKick();                         break;
-                case "guitar": synth.SetGuitarPitchFromSensor(note.pitchValue); break;
+                case "guitar": synth.PlayGuitarTone(note.noteIndex); break;
             }
         }
 

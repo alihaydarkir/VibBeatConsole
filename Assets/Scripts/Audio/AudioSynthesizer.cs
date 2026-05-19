@@ -75,51 +75,89 @@ public class AudioSynthesizer : MonoBehaviour
     // Sensörün gözlemlenen min/max değerleri — dinamik aralık öğrenmesi
     private float sensorObservedMin =  1f;
     private float sensorObservedMax =  0f;
-    private const float SENSOR_LEARN_RATE  = 0.02f; // aralık genişleme hızı
-    private const float GUITAR_MUTE_THRESHOLD = 0.02f; // yeniden ölçeklenmiş değerin altı = mute
+    private const float GUITAR_MUTE_THRESHOLD = 0.02f;
+    private const float TONE_HYSTERESIS       = 0.025f;
+
+    // Dwell loop: aynı tonda bu kadar kalınca loop'a girer
+    private float _dwellTimer                 = 0f;
+    private const float DWELL_TO_LOOP         = 0.35f; // saniye
+
+    [SerializeField] private float debugDwellTimer = 0f;
 
     // --- Sensörden gelen 0-1 değeri gitar tonuna dönüştür ---
     public void SetGuitarToneFromSensor(float normalizedValue)
     {
         debugNormalizedLux = normalizedValue;
 
-        // Dinamik aralık öğren: min ve max'ı sensör kullanıldıkça güncelle
         if (normalizedValue < sensorObservedMin) sensorObservedMin = normalizedValue;
         if (normalizedValue > sensorObservedMax) sensorObservedMax = normalizedValue;
 
-        // Gözlemlenen aralık içinde 0-1'e yeniden ölçekle
-        float range = sensorObservedMax - sensorObservedMin;
-        float rescaled = range > 0.05f                          // en az %5 fark varsa ölçekle
+        float range    = sensorObservedMax - sensorObservedMin;
+        float rescaled = range > 0.05f
             ? (normalizedValue - sensorObservedMin) / range
             : normalizedValue;
 
-        // Sensör kapalıysa mute
+        // Mute
         if (rescaled < GUITAR_MUTE_THRESHOLD)
         {
             if (currentGuitarToneIndex != -1)
             {
                 currentGuitarToneIndex = -1;
                 debugGuitarToneIndex   = -1;
+                _dwellTimer            = 0f;
+                debugDwellTimer        = 0f;
                 if (guitarLoopActive && guitarSource != null)
+                {
+                    guitarSource.loop = false;
                     guitarSource.Stop();
+                }
             }
             return;
         }
 
         if (guitarToneClips == null || guitarToneClips.Length == 0) return;
 
-        int count     = guitarToneClips.Length;
-        int toneIndex = Mathf.Clamp(Mathf.FloorToInt(rescaled * count), 0, count - 1);
+        int   count        = guitarToneClips.Length;
+        float exactPos     = rescaled * count;
+        int   desiredIndex = Mathf.Clamp(Mathf.FloorToInt(exactPos), 0, count - 1);
 
-        if (toneIndex == currentGuitarToneIndex) return; // ton değişmedi
+        // Hysteresis
+        float fracPart = exactPos - Mathf.Floor(exactPos);
+        if (desiredIndex > currentGuitarToneIndex && fracPart < TONE_HYSTERESIS)      return;
+        if (desiredIndex < currentGuitarToneIndex && fracPart > 1f - TONE_HYSTERESIS) return;
 
-        currentGuitarToneIndex = toneIndex;
-        debugGuitarToneIndex   = toneIndex;
+        if (desiredIndex != currentGuitarToneIndex)
+        {
+            // ── Ton değişti: dwell sıfırla, yeni tonu çal (henüz loop değil) ──
+            currentGuitarToneIndex = desiredIndex;
+            debugGuitarToneIndex   = desiredIndex;
+            _dwellTimer            = 0f;
+            debugDwellTimer        = 0f;
 
-        // Ton değişince kayıt (piyano/davul ile aynı yaklaşım)
-        NoteRecorder.Instance?.RecordGuitarTone(toneIndex);
+            NoteRecorder.Instance?.RecordGuitarTone(desiredIndex);
+            LoopRecorder.Instance?.RecordGuitar(desiredIndex);
 
-        if (guitarLoopActive) SwitchToTone(toneIndex);
+            if (guitarLoopActive)
+            {
+                guitarSource.loop = false; // önce tek seferlik çal
+                SwitchToTone(desiredIndex);
+            }
+        }
+        else
+        {
+            // ── Aynı tonda kalıyor: dwell timer ilerlet ──
+            _dwellTimer     += Time.deltaTime;
+            debugDwellTimer  = _dwellTimer;
+
+            if (guitarLoopActive && _dwellTimer >= DWELL_TO_LOOP && !guitarSource.loop)
+            {
+                // Dwell süresi doldu → loop'a gir
+                guitarSource.loop = true;
+                if (!guitarSource.isPlaying)
+                    guitarSource.Play(); // clip bitmişse yeniden başlat
+                Debug.Log($"[AUDIO] Ton {desiredIndex} loop'a girdi.");
+            }
+        }
     }
 
     // Kayıt başlarken öğrenilen aralığı sıfırla — taze başlasın
@@ -188,6 +226,7 @@ public class AudioSynthesizer : MonoBehaviour
         pianoSource.pitch = pianoNotePitches[keyIndex];
         pianoSource.PlayOneShot(pianoNotes[keyIndex], 0.8f);
         NoteRecorder.Instance?.RecordPiano(keyIndex);
+        LoopRecorder.Instance?.RecordPiano(keyIndex);
         Debug.Log($"[AUDIO] [PIANO] Nota çalındı: {keyIndex} (pitch:{pianoNotePitches[keyIndex]})");
     }
 
@@ -202,6 +241,7 @@ public class AudioSynthesizer : MonoBehaviour
 
         drumSource.PlayOneShot(drumKick, 1f);
         NoteRecorder.Instance?.RecordDrum();
+        LoopRecorder.Instance?.RecordDrum();
         Debug.Log("[AUDIO] [DAVUL] Kick!");
     }
 
@@ -210,14 +250,20 @@ public class AudioSynthesizer : MonoBehaviour
     {
         if (guitarSource == null) return;
         guitarLoopActive       = true;
-        currentGuitarToneIndex = -1; // sensör tekrar okuyunca uygun tonu seçer
+        currentGuitarToneIndex = -1;
+        _dwellTimer            = 0f;
+        debugDwellTimer        = 0f;
+        guitarSource.loop      = false;
         Debug.Log("[AUDIO] Gitar loop başladı.");
     }
 
     public void StopGuitarLoop()
     {
         if (guitarSource == null) return;
-        guitarLoopActive = false;
+        guitarLoopActive       = false;
+        _dwellTimer            = 0f;
+        debugDwellTimer        = 0f;
+        guitarSource.loop      = false;
         guitarSource.Stop();
         Debug.Log("[AUDIO] Gitar loop durduruldu.");
     }

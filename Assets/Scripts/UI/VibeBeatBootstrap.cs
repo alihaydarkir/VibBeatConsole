@@ -35,12 +35,18 @@ public class VibeBeatBootstrap : MonoBehaviour
     private TextMeshProUGUI calPercentText;
     private TextMeshProUGUI calLuxText;
     private TextMeshProUGUI calStatusText;
+    private TextMeshProUGUI metronomeBPMText;
+    private GameObject      loopRecordGO;
+    private GameObject      loopStopRecGO;
+    private GameObject      loopPlayGO;
+    private GameObject      loopStopPlayGO;
 
     private VibeBeatScreenManager screenManager;
     private bool  hapticEnabled = true;
     private int   effectLevel   = 1;
     private float masterVolume  = 0.7f;
     private bool  guitarMuted   = false;
+    private Coroutine calibRoutine = null; // Retry çakışmasını önler
 
     // ─────────────────────────────────────────
     // AWAKE
@@ -164,7 +170,10 @@ public class VibeBeatBootstrap : MonoBehaviour
         calLuxText     = bar?.Find("LuxText")?.GetComponent<TextMeshProUGUI>();
         calStatusText  = bar?.Find("StatusText")?.GetComponent<TextMeshProUGUI>();
 
-        BindBtn(card, "RetryButton",    () => StartCoroutine(CalibrationUIRoutine()));
+        BindBtn(card, "RetryButton",    () => {
+            if (calibRoutine != null) StopCoroutine(calibRoutine);
+            calibRoutine = StartCoroutine(CalibrationUIRoutine());
+        });
         BindBtn(card, "ContinueButton", ShowMainConsole);
     }
 
@@ -204,6 +213,8 @@ public class VibeBeatBootstrap : MonoBehaviour
         {
             string[] notes = { "C4", "D4", "E4", "F4" };
             int bound = 0;
+            // Her tuşun son basım zamanı — double-fire koruması
+            float[] pianoLastPress = new float[notes.Length];
             for (int i = 0; i < notes.Length; i++)
             {
                 int     idx  = i;
@@ -214,13 +225,13 @@ public class VibeBeatBootstrap : MonoBehaviour
                     key.onClick.RemoveAllListeners();
                     key.onClick.AddListener(() =>
                     {
+                        if (UnityEngine.Time.unscaledTime - pianoLastPress[idx] < 0.08f) return;
+                        pianoLastPress[idx] = UnityEngine.Time.unscaledTime;
                         Debug.Log($"[BOOTSTRAP] [PIANO] Piyano tuş basıldı: {idx}");
                         if (masterController != null)
                             masterController.HandlePianoKeyFromUI(idx);
                         else
                             Debug.LogError("[BOOTSTRAP] masterController NULL — piyano çalınamadı!");
-
-                        // WaterDrop: TouchSpawnHandler hallediyor (dokunma noktasindan)
                     });
                     bound++;
                 }
@@ -237,22 +248,67 @@ public class VibeBeatBootstrap : MonoBehaviour
             Button padBtn = drum.Find("DrumPad")?.GetComponent<Button>();
             if (padBtn != null)
             {
+                float drumLastPress = 0f;
                 padBtn.onClick.RemoveAllListeners();
                 padBtn.onClick.AddListener(() =>
                 {
+                    if (UnityEngine.Time.unscaledTime - drumLastPress < 0.08f) return;
+                    drumLastPress = UnityEngine.Time.unscaledTime;
                     Debug.Log("[BOOTSTRAP] [DAVUL] Davul basıldı!");
                     if (masterController != null)
                         masterController.HandleDrumHitFromUI();
                     else
                         Debug.LogError("[BOOTSTRAP] masterController NULL — davul çalınamadı!");
-
-                    // WaterDrop: TouchSpawnHandler hallediyor (dokunma noktasindan)
                 });
                 Debug.Log("[BOOTSTRAP] [OK] DrumPad bağlandı.");
             }
             else Debug.LogWarning("[BOOTSTRAP] DrumPad butonu bulunamadı!");
         }
         else Debug.LogWarning("[BOOTSTRAP] DrumPanel bulunamadı!");
+
+        // Loop Recorder + BPM — DonguBar veya MetronomePanel altında aranır
+        Transform loopParent = mainConsoleScreen.transform.Find("DonguBar")
+                            ?? mainConsoleScreen.transform.Find("MetronomePanel");
+        if (loopParent != null)
+        {
+            metronomeBPMText = loopParent.Find("BPMText")?.GetComponent<TextMeshProUGUI>();
+
+            loopRecordGO   = loopParent.Find("LoopRecordButton")?.gameObject;
+            loopStopRecGO  = loopParent.Find("LoopStopRecButton")?.gameObject;
+            loopPlayGO     = loopParent.Find("LoopPlayButton")?.gameObject;
+            loopStopPlayGO = loopParent.Find("LoopStopPlayButton")?.gameObject;
+
+            BindBtn(loopParent, "LoopRecordButton",   () => { LoopToggle(); UpdateLoopVisuals(); });
+            BindBtn(loopParent, "LoopStopRecButton",  () => { LoopToggle(); UpdateLoopVisuals(); });
+            BindBtn(loopParent, "LoopPlayButton",     () => { LoopPlay();   UpdateLoopVisuals(); });
+            BindBtn(loopParent, "LoopStopPlayButton", () => { LoopPlay();   UpdateLoopVisuals(); });
+            BindBtn(loopParent, "DecreaseButton", MetronomeDecrease);
+            BindBtn(loopParent, "IncreaseButton", MetronomeIncrease);
+
+            UpdateLoopVisuals();
+            Debug.Log("[BOOTSTRAP] [OK] Loop Recorder + BPM bağlandı.");
+        }
+        else Debug.LogWarning("[BOOTSTRAP] DonguBar veya MetronomePanel bulunamadı!");
+    }
+
+    private void UpdateLoopVisuals()
+    {
+        var  loop      = LoopRecorder.Instance;
+        bool recording = loop != null && loop.CurrentState == LoopRecorder.State.Recording;
+        bool playing   = loop != null && loop.CurrentState == LoopRecorder.State.Playing;
+        bool hasLoop   = loop != null && loop.HasLoop;
+
+        if (loopRecordGO  != null) loopRecordGO.SetActive(!recording);
+        if (loopStopRecGO != null) loopStopRecGO.SetActive(recording);
+
+        if (loopPlayGO     != null) loopPlayGO.SetActive(!playing);
+        if (loopStopPlayGO != null) loopStopPlayGO.SetActive(playing);
+
+        if (loopPlayGO != null)
+        {
+            var btn = loopPlayGO.GetComponent<Button>();
+            if (btn != null) btn.interactable = hasLoop && !recording;
+        }
     }
 
     private void BindSettings()
@@ -387,6 +443,7 @@ public class VibeBeatBootstrap : MonoBehaviour
     public void ShowRecordStudio()
     {
         Debug.Log("[BOOTSTRAP] → RecordStudioScreen");
+        masterController?.StopGuitarLoop(); // kayıt ekranında gitar çalmasın
         screenManager?.ShowRecordStudio();
     }
 
@@ -548,7 +605,8 @@ public class VibeBeatBootstrap : MonoBehaviour
     {
         Debug.Log("[BOOTSTRAP] → CalibrationScreen");
         screenManager?.ShowCalibration();
-        StartCoroutine(CalibrationUIRoutine());
+        if (calibRoutine != null) StopCoroutine(calibRoutine);
+        calibRoutine = StartCoroutine(CalibrationUIRoutine());
     }
 
     // ─────────────────────────────────────────
@@ -559,18 +617,18 @@ public class VibeBeatBootstrap : MonoBehaviour
         Image progressRing = calibrationScreen?.transform
             .Find("CalibrationCard/RingContainer/ProgressRing")?.GetComponent<Image>();
 
-        SetText(calStepText,   "1/2  Sol elinizi sensörün üstüne kapatın");
+        SetText(calStepText,   "1/2  Sol elinizi sensörün üstüne kapatin");
         SetText(calPercentText,"0%");
-        SetText(calLuxText,    "Lux: ölçülüyor...");
+        SetText(calLuxText,    "Lux: olculuyor...");
         SetText(calStatusText, "Durum: Bekliyor");
         if (progressRing) progressRing.fillAmount = 0f;
 
         AccessibilityManager.Instance?.AnnounceCalibrationStep(
-            "Adım 1: Sol elinizi ışık sensörünün üzerine kapatın.");
+            "Adim 1: Sol elinizi isik sensörünün uzerine kapatin.");
 
         // Gerçek kalibrasyon UI ile EŞ ZAMANLI başlar — animasyon bittikten sonra değil
         masterController?.StartCalibration();
-        Debug.Log("[BOOTSTRAP] [CALIB] Kalibrasyon başlatıldı (UI ile eş zamanlı).");
+        Debug.Log("[BOOTSTRAP] [CALIB] Kalibrasyon baslatildi (UI ile es zamanli).");
 
         // Faz 1: Minimum ölçümü (el kapalı) — ~2.5 saniye
         float duration = 2.5f, timer = 0f;
@@ -580,17 +638,15 @@ public class VibeBeatBootstrap : MonoBehaviour
             float n   = Mathf.Clamp01(timer / duration);
             int   pct = Mathf.RoundToInt(n * 50f);
             SetText(calPercentText, pct + "%");
-            // Gerçek lux değerini göster
-            float liveMin = masterController?.GetNormalizedSensorValue() ?? 0f;
-            SetText(calLuxText,    "Lux: " + (liveMin * 50000f).ToString("0"));
-            SetText(calStatusText, "Durum: Min ölçülüyor");
+            SetText(calLuxText, "Lux: " + (masterController?.GetRawLux() ?? 0f).ToString("0"));
+            SetText(calStatusText, "Durum: Min olculuyor");
             if (progressRing) progressRing.fillAmount = n * 0.5f;
             yield return null;
         }
 
-        SetText(calStepText, "2/2  Elinizi sensörden uzaklaştırın");
+        SetText(calStepText, "2/2  Elinizi sensorden uzaklastirin");
         AccessibilityManager.Instance?.AnnounceCalibrationStep(
-            "Adım 2: Elinizi yavaşça uzaklaştırın.");
+            "Adim 2: Elinizi yavasca uzaklastirin.");
 
         // Faz 2: Maksimum ölçümü (el açık) — ~2.5 saniye
         timer = 0f;
@@ -600,21 +656,78 @@ public class VibeBeatBootstrap : MonoBehaviour
             float n   = Mathf.Clamp01(timer / duration);
             int   pct = 50 + Mathf.RoundToInt(n * 50f);
             SetText(calPercentText, pct + "%");
-            float liveMax = masterController?.GetNormalizedSensorValue() ?? 0f;
-            SetText(calLuxText,    "Lux: " + (liveMax * 50000f).ToString("0"));
-            SetText(calStatusText, "Durum: Max ölçülüyor");
+            SetText(calLuxText, "Lux: " + (masterController?.GetRawLux() ?? 0f).ToString("0"));
+            SetText(calStatusText, "Durum: Max olculuyor");
             if (progressRing) progressRing.fillAmount = 0.5f + n * 0.5f;
             yield return null;
         }
 
-        SetText(calStepText,   "Kalibrasyon tamamlandı [OK]");
+        SetText(calStepText,   "Kalibrasyon tamamlandi [OK]");
         SetText(calPercentText,"100%");
-        SetText(calStatusText, "Durum: Hazır");
+        SetText(calStatusText, "Durum: Hazir");
         if (progressRing) progressRing.fillAmount = 1f;
 
         AccessibilityManager.Instance?.AnnounceCalibrationComplete();
-        Debug.Log("[BOOTSTRAP] [OK] Kalibrasyon UI tamamlandı.");
+        Debug.Log("[BOOTSTRAP] [OK] Kalibrasyon UI tamamlandi.");
     }
+
+    // ─────────────────────────────────────────
+    // START — LoopRecorder durum olayına abone ol
+    // ─────────────────────────────────────────
+    private void Start()
+    {
+        if (LoopRecorder.Instance != null)
+            LoopRecorder.Instance.OnStateChanged += _ => UpdateLoopVisuals();
+        UpdateLoopVisuals();
+    }
+
+    // ─────────────────────────────────────────
+    // LOOP RECORDER KONTROLÜ
+    // ─────────────────────────────────────────
+    private void LoopToggle()
+    {
+        var loop = LoopRecorder.Instance;
+        if (loop == null) return;
+
+        switch (loop.CurrentState)
+        {
+            case LoopRecorder.State.Idle:
+            case LoopRecorder.State.Ready:
+                loop.StartRecording();
+                MetronomeController.Instance?.Play();
+                break;
+            case LoopRecorder.State.Recording:
+                loop.StopRecording();
+                MetronomeController.Instance?.Stop();
+                break;
+            case LoopRecorder.State.Playing:
+                loop.StopPlayback();
+                loop.StartRecording();
+                MetronomeController.Instance?.Play();
+                break;
+        }
+    }
+
+    private void LoopPlay()
+    {
+        var loop = LoopRecorder.Instance;
+        if (loop == null) return;
+
+        if (loop.CurrentState == LoopRecorder.State.Playing)
+            loop.StopPlayback();
+        else if (loop.HasLoop)
+            loop.StartPlayback();
+    }
+
+    // ─────────────────────────────────────────
+    // METRONOM YARDIMCILARI (BPM kontrolü için)
+    // ─────────────────────────────────────────
+    public void MetronomeToggle()           => MetronomeController.Instance?.Toggle();
+    public void MetronomeIncrease()         => MetronomeController.Instance?.IncreaseBPM();
+    public void MetronomeDecrease()         => MetronomeController.Instance?.DecreaseBPM();
+    public void MetronomeSetBPM(float bpm)  => MetronomeController.Instance?.SetBPM(bpm);
+    public bool MetronomeIsPlaying()        => MetronomeController.Instance?.IsPlaying ?? false;
+    public float MetronomeBPM()             => MetronomeController.Instance?.BPM ?? 120f;
 
     // ─────────────────────────────────────────
     // GITAR MUTE
@@ -634,6 +747,9 @@ public class VibeBeatBootstrap : MonoBehaviour
     {
         if (sensorValueText != null && masterController != null)
             sensorValueText.text = masterController.GetNormalizedSensorValue().ToString("0.00");
+
+        if (metronomeBPMText != null)
+            metronomeBPMText.text = MetronomeBPM().ToString("0") + " BPM";
     }
 
     // ─────────────────────────────────────────
@@ -664,21 +780,21 @@ public class VibeBeatBootstrap : MonoBehaviour
         btn.onClick.RemoveAllListeners();
         btn.onClick.AddListener(action);
 
-        // Her butona otomatik ripple — butonun kendi pozisyonundan yayilir
+        // Loop butonlarında ripple yok
+        if (childName.Contains("Loop") || childName.Contains("Decrease") || childName.Contains("Increase"))
+        {
+            Debug.Log($"[BOOTSTRAP] [OK] '{childName}' butonu bağlandı.");
+            return;
+        }
+
+        // Diğer butonlara otomatik ripple — butonun kendi pozisyonundan yayilir
         Transform finalChildT = childT;
         btn.onClick.AddListener(() =>
         {
             Color rippleColor = RippleEffect.ColorGuitar; // varsayilan: cyan
 
-            // Butona gore renk sec
-            if (childName.Contains("Start") || childName.Contains("Continue"))
-                rippleColor = RippleEffect.ColorGuitar;
-            else if (childName.Contains("Settings") || childName.Contains("Back"))
+            if (childName.Contains("Settings") || childName.Contains("Back"))
                 rippleColor = new Color(0.7f, 0.4f, 1f, 1f);
-            else if (childName.Contains("Calibr") || childName.Contains("Retry") || childName.Contains("Recal"))
-                rippleColor = RippleEffect.ColorGuitar;
-            else if (childName.Contains("Mute"))
-                rippleColor = RippleEffect.ColorGuitar;
 
             RippleEffect.Instance?.SpawnFromScreenPos(
                 RectTransformUtility.WorldToScreenPoint(Camera.main,
