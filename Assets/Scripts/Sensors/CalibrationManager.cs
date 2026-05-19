@@ -13,8 +13,10 @@ public class CalibrationManager : MonoBehaviour
     private const string SAVE_KEY = "VibBeat_Calibration";
 
     // --- Inspector ---
-    [SerializeField] private float debugMinLux = 0f;
-    [SerializeField] private float debugMaxLux = 50000f;
+    [SerializeField] private float debugMinLux    = 0f;
+    [SerializeField] private float debugMaxLux    = 50000f;
+    [SerializeField] private float debugFloor     = 0f;
+    [SerializeField] private float debugRange     = 0f;
     [SerializeField] private float debugNormalized = 0f;
 
     // --- Events ---
@@ -41,13 +43,15 @@ public class CalibrationManager : MonoBehaviour
     // --- Kalibrasyon Başlat ---
     public void StartCalibration()
     {
+        // Önceki çalışan kalibrasyon varsa durdur — Retry'da çakışmayı önler
+        StopAllCoroutines();
+        CancelInvoke(nameof(DelayedStart));
+        isCalibrated = false;
+
         if (gameObject.activeInHierarchy)
-        {
             StartCoroutine(CalibrationRoutine());
-        }
         else
         {
-            // Inactive ise enabled kontrolunu atla, dogrudan invoke et
             Debug.LogWarning("[CALIBRATION] GameObject inactive — coroutine gecikmeli baslatildi.");
             Invoke(nameof(DelayedStart), 0.1f);
         }
@@ -55,6 +59,7 @@ public class CalibrationManager : MonoBehaviour
 
     private void DelayedStart()
     {
+        StopAllCoroutines();
         if (gameObject.activeInHierarchy)
             StartCoroutine(CalibrationRoutine());
         else
@@ -63,14 +68,12 @@ public class CalibrationManager : MonoBehaviour
 
     private IEnumerator CalibrationRoutine()
     {
-        // Editor'da gerçek sensör yok — simüle değerler kullan
         bool isEditor = Application.platform != RuntimePlatform.Android;
 
-        // ADIM 1: Minimum Lux (el kapalı)
-        // Bootstrap UI ile eş zamanlı çalışır: Faz 1 = 2.5s
-        // 1.0s bekle (kullanıcı elini kapatsın), sonra 1.5s boyunca örnekle
+        // ── ADIM 1: Minimum (el kapalı) ──────────────────────────────────
+        // Faz 1 toplam 2.5s: 1.5s sensör stabilize + 1s örnekle
         OnCalibrationMessage?.Invoke("Elini kapat ve bekle...");
-        yield return new WaitForSeconds(isEditor ? 0.3f : 1.0f);
+        yield return new WaitForSeconds(isEditor ? 0.3f : 1.5f); // sensör stabilize olsun
 
         if (isEditor)
         {
@@ -78,26 +81,27 @@ public class CalibrationManager : MonoBehaviour
         }
         else
         {
-            float minSum = 0f;
-            int   samples = 90; // ~1.5s @ 60fps
-            for (int i = 0; i < samples; i++)
+            // Zaman bazlı örnekleme — FPS'ten bağımsız
+            float minSum   = 0f;
+            int   minCount = 0;
+            float elapsed  = 0f;
+            while (elapsed < 1.0f)
             {
-                minSum += sensorController.GetCurrentLux();
+                minSum  += sensorController.GetCurrentLux();
+                minCount++;
+                elapsed += Time.deltaTime;
                 yield return null;
             }
-            minLux = minSum / samples;
+            minLux = minCount > 0 ? minSum / minCount : 0f;
         }
         debugMinLux = minLux;
-        OnCalibrationMessage?.Invoke($"Min kaydedildi: {minLux:F1} lux");
+        OnCalibrationMessage?.Invoke($"Min: {minLux:F1} lux");
+        Debug.Log($"[CALIBRATION] Min ölçüldü: {minLux:F1} lux");
 
-        // Faz 2 başlangıcına kadar bekle
-        yield return new WaitForSeconds(isEditor ? 0.2f : 0f);
-
-        // ADIM 2: Maximum Lux (el açık)
-        // Bootstrap UI Faz 2 başlar: kullanıcı elini uzaklaştırıyor
-        // 1.0s bekle (el tamamen açılsın), sonra 1.5s boyunca örnekle
+        // ── ADIM 2: Maximum (el açık) ─────────────────────────────────────
+        // Faz 2 toplam 2.5s: 1.5s el açılsın + 1s örnekle
         OnCalibrationMessage?.Invoke("Elini ac, 15cm yukari kaldir...");
-        yield return new WaitForSeconds(isEditor ? 0.3f : 1.0f);
+        yield return new WaitForSeconds(isEditor ? 0.3f : 1.5f); // el tamamen açılsın
 
         if (isEditor)
         {
@@ -105,28 +109,41 @@ public class CalibrationManager : MonoBehaviour
         }
         else
         {
-            float maxSum = 0f;
-            int   samples = 90; // ~1.5s @ 60fps
-            for (int i = 0; i < samples; i++)
+            float maxSum   = 0f;
+            int   maxCount = 0;
+            float elapsed  = 0f;
+            while (elapsed < 1.0f)
             {
-                maxSum += sensorController.GetCurrentLux();
+                maxSum  += sensorController.GetCurrentLux();
+                maxCount++;
+                elapsed += Time.deltaTime;
                 yield return null;
             }
-            maxLux = maxSum / samples;
+            maxLux = maxCount > 0 ? maxSum / maxCount : 50000f;
         }
         debugMaxLux = maxLux;
-        OnCalibrationMessage?.Invoke($"Max kaydedildi: {maxLux:F1} lux");
+        OnCalibrationMessage?.Invoke($"Max: {maxLux:F1} lux");
+        Debug.Log($"[CALIBRATION] Max ölçüldü: {maxLux:F1} lux");
 
-        yield return new WaitForSeconds(isEditor ? 0.3f : 1f);
+        // Validasyon — max en az 3 lux olmalı VE max > min + 3
+        float diff = maxLux - minLux;
+        Debug.Log($"[CALIBRATION] Olculdu — Min:{minLux:F1}  Max:{maxLux:F1}  Fark:{diff:F1}");
+        if (maxLux < 2f || diff < 2f)
+        {
+            Debug.LogWarning($"[CALIBRATION] Basarisiz — fark:{diff:F1} (min 2 gerekli)");
+            OnCalibrationMessage?.Invoke("Hata: Isik farki yetersiz. El kapatma/acmayi tekrar dene.");
+            yield break;
+        }
 
-        // Tamamlandı
         isCalibrated = true;
         SaveCalibrationData();
         OnCalibrationMessage?.Invoke("Kalibrasyon tamamlandi!");
         OnCalibrationComplete?.Invoke();
-
-        Debug.Log($"[CALIBRATION] Min:{minLux:F1} Max:{maxLux:F1}");
+        Debug.Log($"[CALIBRATION] ✓ Min:{minLux:F1} Max:{maxLux:F1} Fark:{maxLux - minLux:F1}");
     }
+
+    // Min bu eşiğin altındaysa taban olarak 0 kullan (karanlık ortamlar için geniş tut)
+    private const float MIN_FLOOR_THRESHOLD = 10f;
 
     // --- Normalize Fonksiyonu ---
     public float NormalizeLuxValue(float luxValue)
@@ -134,10 +151,17 @@ public class CalibrationManager : MonoBehaviour
         if (!isCalibrated)
             return 0.5f;
 
-        if (Mathf.Approximately(maxLux, minLux))
+        // min < 10 → taban=0 (karanlık/az ışık), min ≥ 10 → taban=minLux (normal/parlak)
+        float floor = minLux < MIN_FLOOR_THRESHOLD ? 0f : minLux;
+        float range = maxLux - floor;
+
+        if (range < 1f)
             return 0.5f;
 
-        float normalized = (luxValue - minLux) / (maxLux - minLux);
+        debugFloor = floor;
+        debugRange = range;
+
+        float normalized = (luxValue - floor) / range;
         normalized = Mathf.Clamp01(normalized);
         debugNormalized = normalized;
         return normalized;

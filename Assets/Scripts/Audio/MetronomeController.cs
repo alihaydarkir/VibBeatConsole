@@ -25,7 +25,6 @@ public class MetronomeController : MonoBehaviour
     [SerializeField] private bool accentFirstBeat = true;
 
     [Header("Debug (Read-Only)")]
-    [SerializeField] private bool  debugIsPlaying  = false;
     [SerializeField] private float debugBPM        = 120f;
     [SerializeField] private int   debugBeatNumber = 0;
 
@@ -102,7 +101,6 @@ public class MetronomeController : MonoBehaviour
     {
         if (_isPlaying) return;
         _isPlaying      = true;
-        debugIsPlaying  = true;
         _beatNumber     = 0;
         _nextBeatTime   = Time.time + _beatInterval; // ilk vuruş hemen değil, 1 beat sonra
         Debug.Log($"[METRO] Başladı — {bpm:0} BPM");
@@ -111,7 +109,6 @@ public class MetronomeController : MonoBehaviour
     public void Stop()
     {
         _isPlaying     = false;
-        debugIsPlaying = false;
         _beatNumber    = 0;
         debugBeatNumber = 0;
         Debug.Log("[METRO] Durdu.");

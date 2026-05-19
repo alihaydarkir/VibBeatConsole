@@ -28,7 +28,6 @@ public class TouchZoneController : MonoBehaviour
     [SerializeField] private bool debugShowZones = false;  // Editor zone görselini kapalı başlat
     [SerializeField] private TouchZoneType debugActiveZone = TouchZoneType.None;
     [SerializeField] private bool debugIsGuitarMuted = false;
-    [SerializeField] private int debugPianoKeyIndex = -1;
 
     // --- Events ---
     public delegate void OnZonePressedDelegate(TouchZoneType zone, Vector2 normalizedPos);
@@ -40,11 +39,6 @@ public class TouchZoneController : MonoBehaviour
     public delegate void OnGuitarMuteChangedDelegate(bool isMuted);
     public event OnGuitarMuteChangedDelegate OnGuitarMuteChanged;
 
-    public delegate void OnPianoKeyDelegate(int keyIndex);
-    public event OnPianoKeyDelegate OnPianoKeyPressed;
-
-    public delegate void OnDrumHitDelegate();
-    public event OnDrumHitDelegate OnDrumHit;
 
     private void Awake()
     {
@@ -114,16 +108,9 @@ public class TouchZoneController : MonoBehaviour
                 Debug.Log("[TOUCH] [GITAR] Gitar MUTE açıldı");
                 break;
 
+            // Piyano ve Davul UI Button'larla yönetiliyor — raw touch'ta çift tetiklenmesin
             case TouchZoneType.PianoKeys:
-                int keyIndex = GetPianoKeyIndex(normalizedPos);
-                debugPianoKeyIndex = keyIndex;
-                OnPianoKeyPressed?.Invoke(keyIndex);
-                Debug.Log($"[TOUCH] [PIANO] Piyano tuş: {keyIndex}");
-                break;
-
             case TouchZoneType.DrumPad:
-                OnDrumHit?.Invoke();
-                Debug.Log("[TOUCH] [DAVUL] Davul vuruldu!");
                 break;
         }
     }

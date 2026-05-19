@@ -19,6 +19,7 @@ public class VibeBeatBootstrap : MonoBehaviour
     // ─────────────────────────────────────────
     // EKRANLAR
     // ─────────────────────────────────────────
+    private GameObject orientationScreen;
     private GameObject splashScreen;
     private GameObject onboardingScreen;
     private GameObject calibrationScreen;
@@ -66,28 +67,27 @@ public class VibeBeatBootstrap : MonoBehaviour
         else
             Debug.Log("[BOOTSTRAP] [OK] MasterController bulundu.");
 
-        Transform t      = transform;
-        splashScreen      = FindChild(t, "SplashScreen");
-        onboardingScreen  = FindChild(t, "OnboardingScreen");
-        calibrationScreen = FindChild(t, "CalibrationScreen");
-        mainConsoleScreen = FindChild(t, "MainConsoleScreen");
-        settingsScreen    = FindChild(t, "SettingsScreen");
-        soundStudioScreen = FindChild(t, "SoundStudioScreen");
+        Transform t        = transform;
+        orientationScreen  = FindChild(t, "OrientationScreen");
+        splashScreen       = FindChild(t, "SplashScreen");
+        onboardingScreen   = FindChild(t, "OnboardingScreen");
+        calibrationScreen  = FindChild(t, "CalibrationScreen");
+        mainConsoleScreen  = FindChild(t, "MainConsoleScreen");
+        settingsScreen     = FindChild(t, "SettingsScreen");
+        soundStudioScreen  = FindChild(t, "SoundStudioScreen");
         recordStudioScreen = FindChild(t, "RecordStudioScreen");
 
-        // ScreenManager'a ekran referanslarını aktar
-        screenManager?.Init(splashScreen, onboardingScreen, calibrationScreen,
+        screenManager?.Init(orientationScreen, splashScreen, onboardingScreen, calibrationScreen,
                             mainConsoleScreen, settingsScreen, soundStudioScreen,
                             recordStudioScreen);
 
         LogScreenStatus();
 
-        // Bağlama için hepsini geçici aç
         ActivateAll(true);
         BindAllUI();
         ActivateAll(false);
 
-        ShowSplash();
+        ShowOrientation();
         Debug.Log("[BOOTSTRAP] [OK] Başlatma tamamlandı.");
     }
 
@@ -136,6 +136,7 @@ public class VibeBeatBootstrap : MonoBehaviour
     // ─────────────────────────────────────────
     private void BindAllUI()
     {
+        BindOrientation();
         BindSplash();
         BindOnboarding();
         BindCalibration();
@@ -143,6 +144,11 @@ public class VibeBeatBootstrap : MonoBehaviour
         BindSettings();
         BindSoundStudio();
         BindRecordStudio();
+    }
+
+    private void BindOrientation()
+    {
+        // Buton yok — 2 saniye sonra otomatik geçiş
     }
 
     private void BindSplash()
@@ -157,6 +163,8 @@ public class VibeBeatBootstrap : MonoBehaviour
         BindBtn(onboardingScreen.transform, "ContinueButton", ShowCalibration);
     }
 
+    private Button calContinueButton;
+
     private void BindCalibration()
     {
         if (calibrationScreen == null) { Debug.LogWarning("[BOOTSTRAP] CalibrationScreen null!"); return; }
@@ -170,7 +178,10 @@ public class VibeBeatBootstrap : MonoBehaviour
         calLuxText     = bar?.Find("LuxText")?.GetComponent<TextMeshProUGUI>();
         calStatusText  = bar?.Find("StatusText")?.GetComponent<TextMeshProUGUI>();
 
-        BindBtn(card, "RetryButton",    () => {
+        Transform contT = card.Find("ContinueButton");
+        if (contT != null) calContinueButton = contT.GetComponent<Button>();
+
+        BindBtn(card, "RetryButton", () => {
             if (calibRoutine != null) StopCoroutine(calibRoutine);
             calibRoutine = StartCoroutine(CalibrationUIRoutine());
         });
@@ -409,6 +420,18 @@ public class VibeBeatBootstrap : MonoBehaviour
     // ─────────────────────────────────────────
     // EKRAN GEÇİŞLERİ
     // ─────────────────────────────────────────
+    public void ShowOrientation()
+    {
+        if (screenManager != null) screenManager.ShowOnly(orientationScreen);
+        StartCoroutine(AutoAdvanceOrientation());
+    }
+
+    private IEnumerator AutoAdvanceOrientation()
+    {
+        yield return new WaitForSeconds(2f);
+        ShowSplash();
+    }
+
     public void ShowSplash()
     {
         Debug.Log("[BOOTSTRAP] → SplashScreen");
@@ -612,64 +635,97 @@ public class VibeBeatBootstrap : MonoBehaviour
     // ─────────────────────────────────────────
     // KALİBRASYON UI ANİMASYONU
     // ─────────────────────────────────────────
+    private bool _calibDone = false;
+
     private IEnumerator CalibrationUIRoutine()
     {
-        Image progressRing = calibrationScreen?.transform
-            .Find("CalibrationCard/RingContainer/ProgressRing")?.GetComponent<Image>();
+        Image progressRing = null;
+        if (calibrationScreen != null)
+        {
+            Transform ringT = calibrationScreen.transform.Find("CalibrationCard/RingContainer/ProgressRing");
+            if (ringT != null) progressRing = ringT.GetComponent<Image>();
+        }
+
+        if (calContinueButton != null) calContinueButton.interactable = false;
+        _calibDone = false;
+
+        // CalibrationManager tamamlanınca flag'i set et
+        if (masterController != null)
+            masterController.OnCalibrationDone += OnCalibDone;
 
         SetText(calStepText,   "1/2  Sol elinizi sensörün üstüne kapatin");
         SetText(calPercentText,"0%");
         SetText(calLuxText,    "Lux: olculuyor...");
         SetText(calStatusText, "Durum: Bekliyor");
-        if (progressRing) progressRing.fillAmount = 0f;
+        if (progressRing != null) progressRing.fillAmount = 0f;
 
-        AccessibilityManager.Instance?.AnnounceCalibrationStep(
-            "Adim 1: Sol elinizi isik sensörünün uzerine kapatin.");
+        if (masterController != null) masterController.StartCalibration();
+        Debug.Log("[BOOTSTRAP] [CALIB] Kalibrasyon baslatildi.");
 
-        // Gerçek kalibrasyon UI ile EŞ ZAMANLI başlar — animasyon bittikten sonra değil
-        masterController?.StartCalibration();
-        Debug.Log("[BOOTSTRAP] [CALIB] Kalibrasyon baslatildi (UI ile es zamanli).");
-
-        // Faz 1: Minimum ölçümü (el kapalı) — ~2.5 saniye
+        // Faz 1: 2.5s — Min ölçümü (el kapalı)
         float duration = 2.5f, timer = 0f;
         while (timer < duration)
         {
             timer += Time.deltaTime;
-            float n   = Mathf.Clamp01(timer / duration);
-            int   pct = Mathf.RoundToInt(n * 50f);
-            SetText(calPercentText, pct + "%");
-            SetText(calLuxText, "Lux: " + (masterController?.GetRawLux() ?? 0f).ToString("0"));
+            float n = Mathf.Clamp01(timer / duration);
+            SetText(calPercentText, Mathf.RoundToInt(n * 50f) + "%");
+            float lux = masterController != null ? masterController.GetRawLux() : 0f;
+            SetText(calLuxText, "Lux: " + lux.ToString("0"));
             SetText(calStatusText, "Durum: Min olculuyor");
-            if (progressRing) progressRing.fillAmount = n * 0.5f;
+            if (progressRing != null) progressRing.fillAmount = n * 0.5f;
             yield return null;
         }
 
         SetText(calStepText, "2/2  Elinizi sensorden uzaklastirin");
-        AccessibilityManager.Instance?.AnnounceCalibrationStep(
-            "Adim 2: Elinizi yavasca uzaklastirin.");
 
-        // Faz 2: Maksimum ölçümü (el açık) — ~2.5 saniye
+        // Faz 2: 2.5s — Max ölçümü (el açık)
         timer = 0f;
         while (timer < duration)
         {
             timer += Time.deltaTime;
-            float n   = Mathf.Clamp01(timer / duration);
-            int   pct = 50 + Mathf.RoundToInt(n * 50f);
-            SetText(calPercentText, pct + "%");
-            SetText(calLuxText, "Lux: " + (masterController?.GetRawLux() ?? 0f).ToString("0"));
+            float n = Mathf.Clamp01(timer / duration);
+            SetText(calPercentText, 50 + Mathf.RoundToInt(n * 50f) + "%");
+            float lux = masterController != null ? masterController.GetRawLux() : 0f;
+            SetText(calLuxText, "Lux: " + lux.ToString("0"));
             SetText(calStatusText, "Durum: Max olculuyor");
-            if (progressRing) progressRing.fillAmount = 0.5f + n * 0.5f;
+            if (progressRing != null) progressRing.fillAmount = 0.5f + n * 0.5f;
             yield return null;
         }
 
-        SetText(calStepText,   "Kalibrasyon tamamlandi [OK]");
-        SetText(calPercentText,"100%");
-        SetText(calStatusText, "Durum: Hazir");
-        if (progressRing) progressRing.fillAmount = 1f;
+        // Event gelene kadar bekle — max 3s timeout
+        float wait = 0f;
+        while (!_calibDone && wait < 3f)
+        {
+            wait += Time.deltaTime;
+            yield return null;
+        }
 
-        AccessibilityManager.Instance?.AnnounceCalibrationComplete();
-        Debug.Log("[BOOTSTRAP] [OK] Kalibrasyon UI tamamlandi.");
+        if (masterController != null)
+            masterController.OnCalibrationDone -= OnCalibDone;
+
+        bool success = masterController != null && masterController.IsCalibrated();
+        Debug.Log($"[BOOTSTRAP] [CALIB] Sonuc: {(success ? "BASARILI" : "BASARISIZ")} | IsCalibrated={success} | EventGeldi={_calibDone}");
+
+        if (success)
+        {
+            SetText(calStepText,   "Kalibrasyon tamamlandi!");
+            SetText(calPercentText,"100%");
+            SetText(calStatusText, "Durum: Hazir");
+            if (progressRing != null) progressRing.fillAmount = 1f;
+            if (calContinueButton != null) calContinueButton.interactable = true;
+            if (AccessibilityManager.Instance != null) AccessibilityManager.Instance.AnnounceCalibrationComplete();
+        }
+        else
+        {
+            SetText(calStepText,   "HATA: Isik farki yetersiz — Tekrar dene");
+            SetText(calPercentText,"!");
+            SetText(calStatusText, "Durum: Basarisiz");
+            if (progressRing != null) progressRing.fillAmount = 0f;
+            Debug.LogWarning("[BOOTSTRAP] [CALIB] Basarisiz veya timeout.");
+        }
     }
+
+    private void OnCalibDone() => _calibDone = true;
 
     // ─────────────────────────────────────────
     // START — LoopRecorder durum olayına abone ol
@@ -757,6 +813,7 @@ public class VibeBeatBootstrap : MonoBehaviour
     // ─────────────────────────────────────────
     private void ActivateAll(bool active)
     {
+        SetActive(orientationScreen,  active);
         SetActive(splashScreen,       active);
         SetActive(onboardingScreen,   active);
         SetActive(calibrationScreen,  active);

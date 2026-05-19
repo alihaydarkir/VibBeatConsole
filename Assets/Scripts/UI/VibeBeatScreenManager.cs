@@ -8,6 +8,7 @@ using DG.Tweening;
 /// </summary>
 public class VibeBeatScreenManager : MonoBehaviour
 {
+    [HideInInspector] public GameObject orientationScreen;
     [HideInInspector] public GameObject splashScreen;
     [HideInInspector] public GameObject onboardingScreen;
     [HideInInspector] public GameObject calibrationScreen;
@@ -24,10 +25,11 @@ public class VibeBeatScreenManager : MonoBehaviour
     private bool  transitioning = false;
 
     // ─────────────────────────────────────────
-    public void Init(GameObject splash, GameObject onboard, GameObject calib,
+    public void Init(GameObject orientation, GameObject splash, GameObject onboard, GameObject calib,
                      GameObject main, GameObject settings,
                      GameObject studio = null, GameObject recordStudio = null)
     {
+        orientationScreen  = orientation;
         splashScreen       = splash;
         onboardingScreen   = onboard;
         calibrationScreen  = calib;
@@ -61,13 +63,7 @@ public class VibeBeatScreenManager : MonoBehaviour
     // ─────────────────────────────────────────
     // GEÇİŞLER — hepsi aynı fade
     // ─────────────────────────────────────────
-    public void ShowSplash()
-    {
-        // İlk acilis — animasyon yok, direkt goster
-        if (!CheckInit()) return;
-        ShowOnly(splashScreen);
-        Debug.Log("[SCREEN_MGR] → SplashScreen (direkt)");
-    }
+    public void ShowSplash() => Fade(splashScreen, "Hosgeldiniz.");
     public void ShowOnboarding()   => Fade(onboardingScreen,  "Nasıl kullanılır? Üç bölge var: Gitar, Piyano ve Davul.");
     public void ShowCalibration()  => Fade(calibrationScreen, "Kalibrasyon. Sol elinizi telefon ışık sensörünün üzerine kapatın.");
     public void ShowMainConsole()  => Fade(mainConsoleScreen, "Müzik konsolu. Sol bölge gitar, sağ üst piyano, sağ alt davul.");
@@ -119,12 +115,13 @@ public class VibeBeatScreenManager : MonoBehaviour
     // ─────────────────────────────────────────
     public void ShowOnly(GameObject target)
     {
-        SetActive(splashScreen,       splashScreen      == target);
-        SetActive(onboardingScreen,   onboardingScreen  == target);
-        SetActive(calibrationScreen,  calibrationScreen == target);
-        SetActive(mainConsoleScreen,  mainConsoleScreen == target);
-        SetActive(settingsScreen,     settingsScreen    == target);
-        SetActive(soundStudioScreen,  soundStudioScreen == target);
+        SetActive(orientationScreen,  orientationScreen  == target);
+        SetActive(splashScreen,       splashScreen       == target);
+        SetActive(onboardingScreen,   onboardingScreen   == target);
+        SetActive(calibrationScreen,  calibrationScreen  == target);
+        SetActive(mainConsoleScreen,  mainConsoleScreen  == target);
+        SetActive(settingsScreen,     settingsScreen     == target);
+        SetActive(soundStudioScreen,  soundStudioScreen  == target);
         SetActive(recordStudioScreen, recordStudioScreen == target);
     }
 

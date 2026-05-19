@@ -75,8 +75,6 @@ public class VibBeatMasterController : MonoBehaviour
         if (touchZoneController != null)
         {
             touchZoneController.OnGuitarMuteChanged += HandleGuitarMuteChanged;
-            touchZoneController.OnPianoKeyPressed   += HandlePianoKeyPressed;
-            touchZoneController.OnDrumHit           += HandleDrumHit;
             Debug.Log("[MASTER] [OK] TouchZone event'leri bağlandı.");
         }
 
@@ -160,12 +158,13 @@ public class VibBeatMasterController : MonoBehaviour
         AccessibilityManager.Instance?.AnnounceCalibrationStep(message);
     }
 
+    public event System.Action OnCalibrationDone;
+
     private void HandleCalibrationComplete()
     {
         Debug.Log("[MASTER] [OK] Kalibrasyon tamamlandı.");
-        // Kalibrasyonsuzken öğrenilen 0.5f değerlerini temizle
         audioSynthesizer?.ResetSensorRange();
-        AccessibilityManager.Instance?.AnnounceCalibrationComplete();
+        OnCalibrationDone?.Invoke();
     }
 
     private void HandleSensorStatus(string status)
@@ -182,6 +181,8 @@ public class VibBeatMasterController : MonoBehaviour
     // PUBLIC API — Bootstrap ve UI için
     // ─────────────────────────────────────────
     public float GetNormalizedSensorValue() => normalizedSensor;
+    public float GetRawLux() => sensorController != null ? sensorController.GetCurrentLux() : 0f;
+    public bool  IsCalibrated() => calibrationManager != null && calibrationManager.IsCalibrated();
 
     public void HandlePianoKeyFromUI(int keyIndex)
     {
@@ -231,6 +232,11 @@ public class VibBeatMasterController : MonoBehaviour
         audioSynthesizer?.StartGuitarLoop();
     }
 
+    public void StopGuitarLoop()
+    {
+        audioSynthesizer?.StopGuitarLoop();
+    }
+
     // ─────────────────────────────────────────
     // TEMİZLİK
     // ─────────────────────────────────────────
@@ -239,8 +245,6 @@ public class VibBeatMasterController : MonoBehaviour
         if (touchZoneController != null)
         {
             touchZoneController.OnGuitarMuteChanged -= HandleGuitarMuteChanged;
-            touchZoneController.OnPianoKeyPressed   -= HandlePianoKeyPressed;
-            touchZoneController.OnDrumHit           -= HandleDrumHit;
         }
         if (calibrationManager != null)
         {
